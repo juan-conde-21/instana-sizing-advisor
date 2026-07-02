@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instana Sizing Advisor</title>
+  <style>
+    :root {
+      --ibm-blue: #0f62fe;
+      --ibm-blue-60: #0f62fe;
+      --ibm-blue-70: #0043ce;
+      --instana-purple: #8a3ffc;
+      --instana-cyan: #08bdba;
+      --green: #24a148;
+      --red: #da1e28;
+      --yellow: #f1c21b;
+      --gray-100: #161616;
+      --gray-80: #393939;
+      --gray-70: #525252;
+      --gray-60: #6f6f6f;
+      --gray-30: #c6c6c6;
+      --gray-20: #e0e0e0;
+      --gray-10: #f4f4f4;
+      --white: #ffffff;
+      --card-shadow: 0 10px 30px rgba(22, 22, 22, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: IBM Plex Sans, Inter, Segoe UI, Arial, sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 52%, #ffffff 100%);
+      color: var(--gray-100);
+    }
+
+    .topbar {
+      border-bottom: 1px solid var(--gray-20);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .topbar-inner {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, var(--ibm-blue), var(--instana-purple) 55%, var(--instana-cyan));
+      box-shadow: 0 12px 24px rgba(15, 98, 254, 0.22);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--gray-60);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button, .button {
+      border: 0;
+      padding: 11px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .primary { background: var(--ibm-blue); color: white; }
+    .secondary { background: var(--gray-10); color: var(--gray-100); border: 1px solid var(--gray-20); }
+
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 26px 28px 56px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 92px;
+      align-self: start;
+      border: 1px solid var(--gray-20);
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+
+    .sidebar-title {
+      padding: 18px 18px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--gray-70);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--gray-10);
+      color: var(--gray-80);
+      font-size: 14px;
+    }
+
+    .nav-item.active {
+      background: #edf5ff;
+      color: var(--ibm-blue-70);
+      font-weight: 800;
+      border-left: 4px solid var(--ibm-blue);
+      padding-left: 14px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--gray-30);
+      flex: 0 0 auto;
+    }
+
+    .nav-item.active .dot { background: var(--ibm-blue); }
+
+    main { min-width: 0; }
+
+    .hero {
+      background: linear-gradient(135deg, #ffffff, #f4f8ff 60%, #ecfffd);
+      border: 1px solid var(--gray-20);
+      border-radius: 24px;
+      padding: 26px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -100px;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(138, 63, 252, 0.22), rgba(8, 189, 186, 0.04) 66%, transparent 68%);
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: -0.045em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--gray-70);
+      max-width: 880px;
+      line-height: 1.55;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--gray-20);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      padding: 20px;
+      min-width: 0;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .card .sub {
+      margin: 5px 0 0;
+      color: var(--gray-60);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #edf5ff;
+      color: var(--ibm-blue-70);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.green { background: #defbe6; color: #0e6027; }
+    .badge.purple { background: #f6f2ff; color: #6929c4; }
+    .badge.cyan { background: #d9fbfb; color: #005d5d; }
+    .badge.yellow { background: #fcf4d6; color: #684e00; }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--gray-70);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--gray-30);
+      border-radius: 10px;
+      background: white;
+      color: var(--gray-100);
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--ibm-blue);
+      box-shadow: 0 0 0 3px rgba(15, 98, 254, 0.12);
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      background: var(--gray-10);
+      border: 1px solid #ebebeb;
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .metric .label {
+      font-size: 12px;
+      color: var(--gray-60);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .metric .value {
+      font-size: 25px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      color: var(--gray-100);
+    }
+
+    .metric .hint {
+      margin-top: 5px;
+      color: var(--gray-60);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 780px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--gray-20);
+      padding: 12px 10px;
+      text-align: left;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f4f4f4;
+      color: var(--gray-70);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td input, td select { padding: 9px; }
+
+    .right { text-align: right; }
+    .mono { font-family: IBM Plex Mono, Consolas, monospace; }
+    .strong { font-weight: 900; }
+
+    .toggle-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 1px solid var(--gray-20);
+      background: var(--gray-10);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 48px;
+      height: 26px;
+      flex: 0 0 auto;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--gray-30);
+      transition: .2s;
+      border-radius: 999px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.22);
+    }
+    .switch input:checked + .slider { background-color: var(--ibm-blue); }
+    .switch input:checked + .slider:before { transform: translateX(22px); }
+
+    .recommendation {
+      border-left: 4px solid var(--ibm-blue);
+      background: #edf5ff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      line-height: 1.45;
+      color: var(--gray-80);
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .recommendation.warn { border-left-color: var(--yellow); background: #fcf4d6; }
+    .recommendation.good { border-left-color: var(--green); background: #defbe6; }
+    .recommendation.purple { border-left-color: var(--instana-purple); background: #f6f2ff; }
+
+    .summary-table { min-width: 920px; }
+
+    .part {
+      display: inline-block;
+      font-family: IBM Plex Mono, Consolas, monospace;
+      font-weight: 900;
+      color: var(--ibm-blue-70);
+      background: #edf5ff;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid #d0e2ff;
+    }
+
+    .subtotal-row td {
+      background: #f8fbff;
+      font-weight: 900;
+    }
+
+    .total-ru {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+      background: linear-gradient(135deg, #f4f8ff, #f6f2ff);
+      border: 1px solid #d0e2ff;
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .total-ru .big {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--gray-60);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1040px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+      .span-8, .span-6, .span-4 { grid-column: span 12; }
+      .metric-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .action-status {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 160px;
+      text-align: right;
+    }
+
+    @media (max-width: 680px) {
+      .topbar-inner { flex-direction: column; align-items: flex-start; }
+      .page { padding: 18px; }
+      .field-grid { grid-template-columns: 1fr; }
+      .metric-row { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <h1>Instana Sizing Advisor</h1>
+          <p>Estimador guiado para cotización, ingesta, logs y Synthetic</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="secondary" onclick="saveScenario()">Guardar escenario</button>
+        <button class="primary" onclick="exportExecutiveExcel()">Exportar Excel</button>
+      <div id="actionStatus" class="action-status" aria-live="polite"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="page">
+    <aside class="sidebar">
+      <div class="sidebar-title">Flujo de sizing</div>
+      <div class="nav-item active"><span class="dot"></span>Datos generales</div>
+      <div class="nav-item"><span class="dot"></span>Inventario distribuido</div>
+      <div class="nav-item"><span class="dot"></span>Add-ons opcionales</div>
+      <div class="nav-item"><span class="dot"></span>Ingesta y crecimiento</div>
+      <div class="nav-item"><span class="dot"></span>Logs</div>
+      <div class="nav-item"><span class="dot"></span>Synthetic</div>
+      <div class="nav-item"><span class="dot"></span>Resumen de cotización</div>
+    </aside>
+
+    <main>
+      <section class="hero">
+        <h2>Asistente de sizing y cotización</h2>
+        <p>
+          Permite declarar el inventario distribuido, activar add-ons cuando apliquen, estimar ingesta, logs y Synthetic, y generar un resumen de cotización con unidades y part numbers únicamente al final.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="card span-8">
+          <div class="card-header">
+            <div>
+              <h3>1. Datos generales</h3>
+              <p class="sub">La modalidad define qué se cotiza y qué se trata como sizing técnico.</p>
+            </div>
+            <span class="badge">Escenario</span>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Cliente</label>
+              <input id="clientName" value="Cliente Demo" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Modalidad</label>
+              <select id="deployment" onchange="calculateAll()">
+                <option value="saas" selected>SaaS</option>
+                <option value="selfhosted">Self-Hosted</option>
+              </select>
+            </div>
+            <div>
+              <label>Ambiente</label>
+              <select id="environment" onchange="calculateAll()">
+                <option>Producción</option>
+                <option>Producción + No Producción</option>
+                <option>Desarrollo / Prueba</option>
+              </select>
+            </div>
+            <div>
+              <label>Región SaaS / ubicación</label>
+              <select id="region" onchange="calculateAll()">
+                <option>US</option>
+                <option>EU</option>
+                <option>No aplica / Self-Hosted</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card span-4">
+          <div class="card-header">
+            <div>
+              <h3>Criterio base</h3>
+              <p class="sub">Se consideran máquinas físicas, virtuales y worker nodes.</p>
+            </div>
+            <span class="badge purple">MVS</span>
+          </div>
+          <div class="recommendation">
+            El worker node se cuenta porque representa la capacidad donde se ejecutan los workloads monitoreados. Los pods no se cuentan como unidad de licenciamiento.
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <div class="card-header">
+            <div>
+              <h3>2. Inventario distribuido</h3>
+              <p class="sub">Standard y Essentials se calculan en paralelo. Si una clasificación tiene cantidad mayor a cero y menor a 10, se considera el mínimo de 10 unidades.</p>
+            </div>
+            <span class="badge green">Mínimo 10</span>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Máquinas físicas Standard</label>
+              <input id="stdPhysical" type="number" value="0" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Máquinas virtuales Standard</label>
+              <input id="stdVm" type="number" value="30" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Worker nodes Standard</label>
+              <input id="stdWorker" type="number" value="0" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Máquinas físicas Essentials</label>
+              <input id="essPhysical" type="number" value="0" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Máquinas virtuales Essentials</label>
+              <input id="essVm" type="number" value="0" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Worker nodes Essentials</label>
+              <input id="essWorker" type="number" value="0" min="0" oninput="calculateAll()" />
+            </div>
+          </div>
+          <div class="recommendation good">
+            Para Kubernetes se cuentan los worker nodes, porque representan la capacidad donde corren los workloads monitoreados. Los pods no se cuentan como unidad de licenciamiento.
+          </div>
+          <div class="metric-row">
+            <div class="metric">
+              <div class="label">Standard calculado</div>
+              <div class="value" id="stdRaw">30</div>
+              <div class="hint">Físicos + VMs + worker nodes</div>
+            </div>
+            <div class="metric">
+              <div class="label">Standard considerado</div>
+              <div class="value" id="stdConsidered">30</div>
+              <div class="hint">Aplica mínimo 10 si existe consumo</div>
+            </div>
+            <div class="metric">
+              <div class="label">Essentials calculado</div>
+              <div class="value" id="essRaw">0</div>
+              <div class="hint">Infraestructura / monitoreo básico</div>
+            </div>
+            <div class="metric">
+              <div class="label">Essentials considerado</div>
+              <div class="value" id="essConsidered">0</div>
+              <div class="hint">Aplica mínimo 10 si existe consumo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <div class="card-header">
+            <div>
+              <h3>3. Add-ons opcionales</h3>
+              <p class="sub">La app puede recomendar, pero el usuario decide si incluir cada componente en el resumen de cotización.</p>
+            </div>
+            <span class="badge purple">Control</span>
+          </div>
+          <div class="toggle-line">
+            <div>
+              <strong>Data ingest adicional</strong><br />
+              <span class="sub">Se recomienda si la ingesta proyectada supera el remanente.</span>
+            </div>
+            <label class="switch"><input id="toggleDataIngest" type="checkbox" checked onchange="syncToggles();calculateAll()" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-line">
+            <div>
+              <strong>Logs in Context</strong><br />
+              <span class="sub">Opcional para SaaS según volumen y retención.</span>
+            </div>
+            <label class="switch"><input id="toggleLogs" type="checkbox" onchange="syncToggles();calculateAll()" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-line">
+            <div>
+              <strong>Synthetic Managed PoP</strong><br />
+              <span class="sub">Aplica cuando se requiere PoP administrado.</span>
+            </div>
+            <label class="switch"><input id="toggleSynthetic" type="checkbox" checked onchange="calculateAll()" /><span class="slider"></span></label>
+          </div>
+          <select id="activateDataIngest" onchange="calculateAll()" style="display:none"><option value="yes" selected>Sí</option><option value="no">No</option></select>
+          <select id="activateLogs" onchange="calculateAll()" style="display:none"><option value="yes">Sí</option><option value="no" selected>No</option></select>
+        </div>
+
+        <div class="card span-12">
+          <div class="card-header">
+            <div>
+              <h3>4. Ingesta base, remanente y proyección</h3>
+              <p class="sub">La cuota incluida se calcula por MVS. Luego se reserva un consumo promedio por agente y se usa el remanente antes de recomendar data ingest adicional.</p>
+            </div>
+            <span class="badge cyan">Data ingest</span>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Consumo promedio de la cuota por agentes (%)</label>
+              <input id="agentUsagePct" type="number" value="80" min="0" max="100" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Proyección de crecimiento (%)</label>
+              <input id="growthPct" type="number" value="20" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Ingesta serverless / OTel actual (GB/mes)</label>
+              <input id="serverlessGb" type="number" value="3000" min="0" oninput="calculateAll()" />
+            </div>
+          </div>
+          <div class="metric-row">
+            <div class="metric">
+              <div class="label">Cuota base incluida</div>
+              <div class="value" id="baseQuotaGb">9,750 GB</div>
+              <div class="hint">Standard 325 GB/MVS + Essentials 50 GB/MVS</div>
+            </div>
+            <div class="metric">
+              <div class="label">Consumo promedio agentes</div>
+              <div class="value" id="agentUsageGb">7,800 GB</div>
+              <div class="hint">Valor configurable</div>
+            </div>
+            <div class="metric">
+              <div class="label">Remanente disponible</div>
+              <div class="value" id="remainingQuotaGb">1,950 GB</div>
+              <div class="hint">Disponible antes de add-on</div>
+            </div>
+            <div class="metric">
+              <div class="label">Unidades data ingest</div>
+              <div class="value" id="dataIngestUnits">17</div>
+              <div class="hint">Bloques de 100 GB/mes</div>
+            </div>
+          </div>
+          <div class="recommendation" id="dataIngestRec">
+            Recomendación: incluir data ingest adicional si la ingesta proyectada supera el remanente de la cuota base.
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <div class="card-header">
+            <div>
+              <h3>5. Logs</h3>
+              <p class="sub">En SaaS se estima por volumen mensual y retención. En Self-Hosted se considera como impacto técnico de storage.</p>
+            </div>
+            <span class="badge yellow">Opcional</span>
+          </div>
+          <div class="field-grid">
+            <div>
+              <label>Retención</label>
+              <select id="logRetention" onchange="calculateAll()">
+                <option value="3">3 días</option>
+                <option value="30" selected>30 días</option>
+                <option value="60">60 días</option>
+                <option value="90">90 días</option>
+              </select>
+            </div>
+            <div>
+              <label>Volumen de logs (GB/mes)</label>
+              <input id="logsGb" type="number" value="2200" min="0" oninput="calculateAll()" />
+            </div>
+            <div>
+              <label>Unidades SaaS estimadas</label>
+              <input id="logUnitsDisplay" value="3" readonly />
+            </div>
+          </div>
+          <div class="recommendation warn" id="logsRec">
+            Si se activa Logs SaaS con 30, 60 o 90 días, se calcula en bloques de 1,000 GB/mes y se redondea hacia arriba.
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <div class="card-header">
+            <div>
+              <h3>6. Synthetic Monitoring - matriz de Resource Units</h3>
+              <p class="sub">Complete la matriz por tipo de prueba. El resultado se expresa en RU y unidades referenciales. Para IBM Managed PoP, el mínimo a considerar es 30 unidades, equivalente a 30,000 RU mensuales.</p>
+            </div>
+            <span class="badge cyan">RU</span>
+          </div>
+          <div class="table-wrap">
+            <table id="syntheticTable">
+              <thead>
+                <tr>
+                  <th>Tipo de prueba</th>
+                  <th>Tests</th>
+                  <th>Frecuencia min.</th>
+                  <th>Ubicaciones</th>
+                  <th>RU por ejecución</th>
+                  <th>Ejecuciones/mes</th>
+                  <th>Subtotal RU/mes</th>
+                  <th>Comentario</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="strong">API Simple</td>
+                  <td><input id="apiSimpleTests" type="number" min="0" value="15" oninput="calculateAll()" /></td>
+                  <td><input id="apiSimpleFreq" type="number" min="1" value="5" oninput="calculateAll()" /></td>
+                  <td><input id="apiSimpleLoc" type="number" min="1" value="2" oninput="calculateAll()" /></td>
+                  <td class="right mono">0.025</td>
+                  <td class="right mono" id="apiSimpleExec">259,200</td>
+                  <td class="right mono strong" id="apiSimpleRu">6,480</td>
+                  <td>API endpoint simple</td>
+                </tr>
+                <tr>
+                  <td class="strong">API Script</td>
+                  <td><input id="apiScriptTests" type="number" min="0" value="8" oninput="calculateAll()" /></td>
+                  <td><input id="apiScriptFreq" type="number" min="1" value="10" oninput="calculateAll()" /></td>
+                  <td><input id="apiScriptLoc" type="number" min="1" value="2" oninput="calculateAll()" /></td>
+                  <td class="right mono">0.042</td>
+                  <td class="right mono" id="apiScriptExec">69,120</td>
+                  <td class="right mono strong" id="apiScriptRu">2,903</td>
+                  <td>API con lógica/script</td>
+                </tr>
+                <tr>
+                  <td class="strong">Browser Test</td>
+                  <td><input id="browserTests" type="number" min="0" value="2" oninput="calculateAll()" /></td>
+                  <td><input id="browserFreq" type="number" min="1" value="15" oninput="calculateAll()" /></td>
+                  <td><input id="browserLoc" type="number" min="1" value="1" oninput="calculateAll()" /></td>
+                  <td class="right mono">1.000</td>
+                  <td class="right mono" id="browserExec">5,760</td>
+                  <td class="right mono strong" id="browserRu">5,760</td>
+                  <td>Flujo de navegador</td>
+                </tr>
+                <tr class="subtotal-row">
+                  <td colspan="5">Total Synthetic calculado</td>
+                  <td class="right mono" id="syntheticTotalExec">334,080</td>
+                  <td class="right mono" id="syntheticTotalRu">15,143 RU</td>
+                  <td>Subtotal antes de mínimo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="total-ru">
+            <div>
+              <div class="label strong">Resultado Synthetic para Managed PoP</div>
+              <div class="hint" id="syntheticMinMessage">El cálculo es menor al mínimo mensual, por eso se consideran 30 unidades.</div>
+            </div>
+            <div class="right">
+              <div class="big" id="syntheticUnitsFinal">30 unidades</div>
+              <div class="hint" id="syntheticRuEntitled">30,000 RU referenciales/mes</div>
+            </div>
+          </div>
+          <div class="recommendation good">
+            Si el PoP es privado o self-hosted, no se agrega el part number Managed PoP. Para prueba técnica se puede considerar una referencia mínima de 4 vCPU, 16 GB RAM y k3s.
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <div class="card-header">
+            <div>
+              <h3>7. Resumen de cotización</h3>
+              <p class="sub">Solo se muestran componentes con cantidad mayor a cero y que estén activados para incluirse en el resumen.</p>
+            </div>
+            <span class="badge green">Resultado</span>
+          </div>
+          <div class="table-wrap">
+            <table class="summary-table">
+              <thead>
+                <tr>
+                  <th>Componente</th>
+                  <th>Part number</th>
+                  <th>Cantidad</th>
+                  <th>Unidad</th>
+                  <th>Explicación</th>
+                </tr>
+              </thead>
+              <tbody id="summaryRows"></tbody>
+            </table>
+          </div>
+          <div class="recommendation purple" id="finalNotes">
+            Revisión general: validar si el escenario se cotizará como SaaS o Self-Hosted. En Self-Hosted, la ingesta y logs no se agregan como add-on SaaS, pero deben considerarse para storage y capacidad de la plataforma.
+          </div>
+          <div class="footer-note">
+            Nota: los valores finales deben validarse con las herramientas comerciales vigentes y con el sizing técnico aplicable cuando el despliegue sea Self-Hosted.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const MONTH_MINUTES = 43200;
+    const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+    const fmt1 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+
+    function n(id) {
+      const el = document.getElementById(id);
+      return Number(el?.value || 0);
+    }
+
+    function txt(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function syncToggles() {
+      document.getElementById('activateDataIngest').value = document.getElementById('toggleDataIngest').checked ? 'yes' : 'no';
+      document.getElementById('activateLogs').value = document.getElementById('toggleLogs').checked ? 'yes' : 'no';
+    }
+
+    function considered(raw) {
+      if (raw <= 0) return 0;
+      return raw < 10 ? 10 : raw;
+    }
+
+    function syntheticRow(prefix, ruPerExecution) {
+      const tests = n(prefix + 'Tests');
+      const freq = Math.max(1, n(prefix + 'Freq'));
+      const loc = Math.max(1, n(prefix + 'Loc'));
+      const exec = tests * loc * (MONTH_MINUTES / freq);
+      const ru = exec * ruPerExecution;
+      return { exec, ru };
+    }
+
+    function addSummary(rows, component, partNumber, qty, unit, explanation) {
+      if (qty > 0) rows.push({ component, partNumber, qty, unit, explanation });
+    }
+
+    function calculateAll() {
+      const deployment = document.getElementById('deployment').value;
+
+      const stdRaw = n('stdPhysical') + n('stdVm') + n('stdWorker');
+      const essRaw = n('essPhysical') + n('essVm') + n('essWorker');
+      const stdCons = considered(stdRaw);
+      const essCons = considered(essRaw);
+
+      txt('stdRaw', fmt.format(stdRaw));
+      txt('stdConsidered', fmt.format(stdCons));
+      txt('essRaw', fmt.format(essRaw));
+      txt('essConsidered', fmt.format(essCons));
+
+      const baseQuota = (stdCons * 325) + (essCons * 50);
+      const agentUsage = baseQuota * (n('agentUsagePct') / 100);
+      const remaining = Math.max(0, baseQuota - agentUsage);
+      const serverlessProjected = n('serverlessGb') * (1 + n('growthPct') / 100);
+      const dataToLicense = Math.max(0, serverlessProjected - remaining);
+      const dataUnits = Math.ceil(dataToLicense / 100);
+
+      txt('baseQuotaGb', `${fmt.format(baseQuota)} GB`);
+      txt('agentUsageGb', `${fmt.format(agentUsage)} GB`);
+      txt('remainingQuotaGb', `${fmt.format(remaining)} GB`);
+      txt('dataIngestUnits', fmt.format(dataUnits));
+
+      const dataRec = document.getElementById('dataIngestRec');
+      if (deployment === 'selfhosted') {
+        dataRec.textContent = 'Self-Hosted: no se agrega data ingest adicional como add-on SaaS. El volumen proyectado se usa como referencia para storage, retención y capacidad del backend Instana.';
+        dataRec.className = 'recommendation warn';
+      } else if (dataUnits > 0) {
+        dataRec.textContent = `Recomendación detectada: la ingesta proyectada supera el remanente disponible. Se sugieren ${fmt.format(dataUnits)} unidades de data ingest adicional en bloques de 100 GB/mes.`;
+        dataRec.className = 'recommendation';
+      } else {
+        dataRec.textContent = 'La ingesta proyectada queda cubierta por el remanente disponible. No se recomienda data ingest adicional.';
+        dataRec.className = 'recommendation good';
+      }
+
+      const logsGb = n('logsGb');
+      const retention = n('logRetention');
+      const logUnits = retention === 3 ? 0 : Math.ceil(logsGb / 1000);
+      document.getElementById('logUnitsDisplay').value = deployment === 'saas' && retention !== 3 ? fmt.format(logUnits) : '0';
+      const logsRec = document.getElementById('logsRec');
+      if (deployment === 'selfhosted') {
+        logsRec.textContent = 'Self-Hosted: Logs se trata como consideración técnica de storage y retención. No se agrega add-on SaaS al resumen.';
+        logsRec.className = 'recommendation warn';
+      } else if (retention === 3) {
+        logsRec.textContent = 'Retención de 3 días: no se agrega part number de retención extendida.';
+        logsRec.className = 'recommendation good';
+      } else {
+        logsRec.textContent = `SaaS: para ${fmt.format(logsGb)} GB/mes con retención de ${retention} días, se estiman ${fmt.format(logUnits)} unidades de 1,000 GB/mes.`;
+        logsRec.className = 'recommendation';
+      }
+
+      const apiSimple = syntheticRow('apiSimple', 0.025);
+      const apiScript = syntheticRow('apiScript', 0.042);
+      const browser = syntheticRow('browser', 1);
+      const totalExec = apiSimple.exec + apiScript.exec + browser.exec;
+      const totalRu = apiSimple.ru + apiScript.ru + browser.ru;
+      const calculatedSyntheticUnits = Math.ceil(totalRu / 1000);
+      const syntheticUnitsFinal = totalRu > 0 ? Math.max(30, calculatedSyntheticUnits) : 0;
+      const ruEntitled = syntheticUnitsFinal * 1000;
+
+      txt('apiSimpleExec', fmt.format(apiSimple.exec));
+      txt('apiSimpleRu', fmt.format(apiSimple.ru));
+      txt('apiScriptExec', fmt.format(apiScript.exec));
+      txt('apiScriptRu', fmt.format(apiScript.ru));
+      txt('browserExec', fmt.format(browser.exec));
+      txt('browserRu', fmt.format(browser.ru));
+      txt('syntheticTotalExec', fmt.format(totalExec));
+      txt('syntheticTotalRu', `${fmt.format(totalRu)} RU`);
+      txt('syntheticUnitsFinal', `${fmt.format(syntheticUnitsFinal)} unidades`);
+      txt('syntheticRuEntitled', `${fmt.format(ruEntitled)} RU referenciales/mes`);
+
+      if (totalRu === 0) {
+        txt('syntheticMinMessage', 'No hay pruebas Synthetic cargadas. No se considera Managed PoP.');
+      } else if (calculatedSyntheticUnits < 30) {
+        txt('syntheticMinMessage', `RU calculadas: ${fmt.format(totalRu)}. Como está por debajo del mínimo, se consideran 30 unidades.`);
+      } else {
+        txt('syntheticMinMessage', `RU calculadas: ${fmt.format(totalRu)}. Se consideran ${fmt.format(syntheticUnitsFinal)} unidades de 1,000 RU/mes.`);
+      }
+
+      const rows = [];
+      if (deployment === 'saas') {
+        addSummary(rows, 'Instana Observability Standard', 'D0N79ZX', stdCons, 'MVS / mes', `Total considerado: ${fmt.format(stdCons)}. Base de ingesta incluida: ${fmt.format(stdCons * 325)} GB/mes.`);
+        addSummary(rows, 'Instana Observability Essentials', 'D0N77ZX', essCons, 'MVS / mes', `Total considerado: ${fmt.format(essCons)}. Base de ingesta incluida: ${fmt.format(essCons * 50)} GB/mes.`);
+        if (document.getElementById('toggleDataIngest').checked) {
+          addSummary(rows, 'Data ingest adicional', 'D0N7BZX', dataUnits, 'Bloques de 100 GB/mes', `Ingesta a licenciar: ${fmt.format(dataToLicense)} GB/mes luego de descontar el remanente disponible.`);
+        }
+        if (document.getElementById('toggleLogs').checked && retention !== 3) {
+          const partByRetention = { 30: 'D0RL4ZX', 60: 'D0RL8ZX', 90: 'D0RLCZX' };
+          addSummary(rows, `Logs in Context ${retention} días`, partByRetention[retention], logUnits, 'Bloques de 1,000 GB/mes', `Volumen de logs: ${fmt.format(logsGb)} GB/mes. Redondeo hacia arriba.`);
+        }
+        if (document.getElementById('toggleSynthetic').checked) {
+          addSummary(rows, 'Synthetic Managed PoP', 'D0I5PZX', syntheticUnitsFinal, 'Unidades de 1,000 RU/mes', `RU calculadas: ${fmt.format(totalRu)}. RU referenciales consideradas: ${fmt.format(ruEntitled)}.`);
+        }
+      } else {
+        addSummary(rows, 'Instana Observability Standard Self-Hosted', 'D29RTLL', stdCons, 'MVS / mes', `Total considerado: ${fmt.format(stdCons)}.`);
+        addSummary(rows, 'Instana Observability Essentials Self-Hosted', 'D29RRLL', essCons, 'MVS / mes', `Total considerado: ${fmt.format(essCons)}.`);
+      }
+
+      const tbody = document.getElementById('summaryRows');
+      tbody.innerHTML = rows.length ? rows.map(r => `
+        <tr>
+          <td class="strong">${r.component}</td>
+          <td><span class="part">${r.partNumber}</span></td>
+          <td class="right mono strong">${fmt.format(r.qty)}</td>
+          <td>${r.unit}</td>
+          <td>${r.explanation}</td>
+        </tr>
+      `).join('') : `<tr><td colspan="5">No hay componentes con cantidad mayor a cero para mostrar.</td></tr>`;
+
+      const notes = document.getElementById('finalNotes');
+      if (deployment === 'selfhosted') {
+        notes.textContent = 'Self-Hosted: el resumen comercial incluye MVS Standard y Essentials. La ingesta, logs y Synthetic PoP privado deben revisarse como sizing técnico de plataforma, storage y capacidad operativa.';
+      } else {
+        notes.textContent = 'SaaS: el resumen incluye los componentes activados. Los add-ons detectados por cálculo aparecen como recomendación, pero solo se incluyen si están activados.';
+      }
+    }
+
+
+
+    function collectScenario() {
+      const fields = {};
+      document.querySelectorAll('input[id], select[id]').forEach(el => {
+        if (el.type === 'checkbox') fields[el.id] = el.checked;
+        else fields[el.id] = el.value;
+      });
+      return {
+        savedAt: new Date().toISOString(),
+        fields,
+        summaryHtml: document.getElementById('summaryRows')?.innerHTML || ''
+      };
+    }
+
+    function applyScenario(scenario) {
+      if (!scenario?.fields) return;
+      Object.entries(scenario.fields).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = Boolean(value);
+        else el.value = value;
+      });
+      syncToggles();
+      calculateAll();
+    }
+
+    function saveScenario() {
+      const scenario = collectScenario();
+      localStorage.setItem('instanaSizingScenario', JSON.stringify(scenario));
+      const status = document.getElementById('actionStatus');
+      if (status) status.textContent = 'Escenario guardado localmente';
+    }
+
+    function loadSavedScenario() {
+      const raw = localStorage.getItem('instanaSizingScenario');
+      if (!raw) return;
+      try { applyScenario(JSON.parse(raw)); } catch (e) { console.warn('No se pudo cargar el escenario guardado', e); }
+    }
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+    }
+
+    function exportExecutiveExcel() {
+      calculateAll();
+      const client = document.getElementById('clientName')?.value || 'Cliente';
+      const deployment = document.getElementById('deployment')?.value === 'saas' ? 'SaaS' : 'Self-Hosted';
+      const environment = document.getElementById('environment')?.value || '';
+      const region = document.getElementById('region')?.value || '';
+      const summaryTable = document.querySelector('#summaryRows')?.closest('table')?.outerHTML || '';
+      const html = `
+        <html><head><meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; color: #161616; }
+          h1 { background:#0f62fe; color:white; padding:14px; }
+          h2 { color:#0f62fe; margin-top:24px; }
+          table { border-collapse: collapse; width: 100%; margin-top:10px; }
+          th { background:#e0eaff; color:#161616; border:1px solid #8d8d8d; padding:8px; text-align:left; }
+          td { border:1px solid #c6c6c6; padding:8px; vertical-align:top; }
+          .metric { font-weight:bold; }
+        </style></head><body>
+          <h1>Instana Sizing Advisor - Resumen Ejecutivo</h1>
+          <h2>Datos generales</h2>
+          <table>
+            <tr><th>Cliente</th><td>${esc(client)}</td></tr>
+            <tr><th>Modalidad</th><td>${esc(deployment)}</td></tr>
+            <tr><th>Ambiente</th><td>${esc(environment)}</td></tr>
+            <tr><th>Región / ubicación</th><td>${esc(region)}</td></tr>
+          </table>
+          <h2>Inventario declarado</h2>
+          <table>
+            <tr><th>Clasificación</th><th>Físicas</th><th>VMs</th><th>Worker nodes</th><th>Total crudo</th><th>Total considerado</th></tr>
+            <tr><td>Standard</td><td>${n('stdPhysical')}</td><td>${n('stdVm')}</td><td>${n('stdWorker')}</td><td>${document.getElementById('stdRaw').textContent}</td><td>${document.getElementById('stdConsidered').textContent}</td></tr>
+            <tr><td>Essentials</td><td>${n('essPhysical')}</td><td>${n('essVm')}</td><td>${n('essWorker')}</td><td>${document.getElementById('essRaw').textContent}</td><td>${document.getElementById('essConsidered').textContent}</td></tr>
+          </table>
+          <h2>Ingesta y add-ons</h2>
+          <table>
+            <tr><th>Concepto</th><th>Resultado</th></tr>
+            <tr><td>Cuota base incluida</td><td>${document.getElementById('baseQuotaGb').textContent}</td></tr>
+            <tr><td>Consumo promedio de agentes</td><td>${document.getElementById('agentUsageGb').textContent}</td></tr>
+            <tr><td>Remanente disponible</td><td>${document.getElementById('remainingQuotaGb').textContent}</td></tr>
+            <tr><td>Unidades Data Ingest</td><td>${document.getElementById('dataIngestUnits').textContent}</td></tr>
+            <tr><td>Logs - unidades</td><td>${document.getElementById('logUnitsDisplay').value}</td></tr>
+            <tr><td>Synthetic RU calculadas</td><td>${document.getElementById('syntheticTotalRu').textContent}</td></tr>
+            <tr><td>Synthetic unidades consideradas</td><td>${document.getElementById('syntheticUnitsFinal').textContent}</td></tr>
+          </table>
+          <h2>Resumen de cotización</h2>
+          ${summaryTable}
+          <p>Generado desde Instana Sizing Advisor.</p>
+        </body></html>`;
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `instana-sizing-${client.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.xls`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      const status = document.getElementById('actionStatus');
+      if (status) status.textContent = 'Excel exportado';
+    }
+
+
+    window.addEventListener('load', () => { loadSavedScenario(); calculateAll(); });
+  </script>
+</body>
+</html>

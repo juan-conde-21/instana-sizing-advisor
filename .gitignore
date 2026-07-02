@@ -1,0 +1,24 @@
+node_modules/
+dist/
+.env
+.env.*
+*.local
+*.log
+
+# Internal / handoff / AI working notes
+TRASPASO_CLAUDE.md
+*CLAUDE*
+*Claude*
+*claude*
+*CODEX*
+*Codex*
+*codex*
+*CHATGPT*
+*ChatGPT*
+*chatgpt*
+*OPENAI*
+*OpenAI*
+*openai*
+prompts/
+handoff/
+internal/
