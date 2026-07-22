@@ -38,6 +38,24 @@ const baseScenario = (): ScenarioInput => ({
 
 });
 
+
+
+function hexForWinAnsi(input: string) {
+  return input.split('').map((char) => char.charCodeAt(0).toString(16).padStart(2, '0').toUpperCase()).join('');
+}
+
+function worksheetText(workbook: ReturnType<typeof createScenarioWorkbook>, name: string) {
+  const worksheet = workbook.getWorksheet(name);
+  if (!worksheet) return '';
+  const values: string[] = [];
+  worksheet.eachRow((row) => row.eachCell((cell) => values.push(String(cell.value ?? ''))));
+  return values.join(' ');
+}
+
+function workbookText(workbook: ReturnType<typeof createScenarioWorkbook>) {
+  return workbook.worksheets.map((sheet) => worksheetText(workbook, sheet.name)).join(' ');
+}
+
 describe('Instana sizing calculations', () => {
   it('creates professional workbook sheets without empty quote rows and preserves Spanish text', async () => {
     const scenario = baseScenario();
@@ -53,15 +71,19 @@ describe('Instana sizing calculations', () => {
     const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
     const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
     const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
-    expect(workbook.getWorksheet('Resumen comercial')).toBeDefined();
-    expect(workbook.getWorksheet('Part Numbers a cotizar')).toBeDefined();
+    expect(workbook.getWorksheet('Resumen ejecutivo')).toBeDefined();
+    expect(workbook.getWorksheet('Detalle del cálculo')).toBeDefined();
+    expect(workbook.getWorksheet('Capacidades adicionales')).toBeDefined();
+    expect(workbook.getWorksheet('Catálogo y validaciones')).toBeDefined();
     expect(workbook.worksheets.every((sheet) => sheet.rowCount > 0)).toBe(true);
     const buffer = await workbook.xlsx.writeBuffer();
     expect(buffer.byteLength).toBeGreaterThan(0);
-    const summaryValues = workbook.getWorksheet('Resumen comercial')?.getColumn(2).values.join(' ');
+    const summaryValues = worksheetText(workbook, 'Resumen ejecutivo');
     expect(summaryValues).toContain('Ñandú Año');
-    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
-    expect(quoteSheet?.getColumn(6).values).not.toContain(0);
+    expect(summaryValues).toContain('Resultado principal');
+    expect(summaryValues).toContain('Part Numbers a cotizar');
+    expect(summaryValues).toContain('D0N79ZX');
+    expect(summaryValues).not.toContain('Campo Valor');
   });
 
   it('creates a valid PDF blob with Spanish words and no empty quote sections', async () => {
@@ -74,10 +96,20 @@ describe('Instana sizing calculations', () => {
     const synthetic = calculateSynthetic(scenario.synthetic, 0, false);
     const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
     const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
-    const pdf = createScenarioPdfBlob({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    const payload = { scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations };
+    const pdf = createScenarioPdfBlob(payload);
     expect(pdf.type).toBe('application/pdf');
     expect(pdf.size).toBeGreaterThan(1000);
-    const summary = quoteSummaryText({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    const pdfText = new TextDecoder().decode(await pdf.arrayBuffer());
+    expect(pdfText).toContain(hexForWinAnsi('IBM Instana Observability'));
+    expect(pdfText).toContain(hexForWinAnsi('Estimación comercial de licenciamiento'));
+    expect(pdfText).toContain(hexForWinAnsi('Resultado principal'));
+    expect(pdfText).toContain(hexForWinAnsi('Part Numbers a cotizar'));
+    expect(pdfText).toContain(hexForWinAnsi('Año de generación'));
+    expect(pdfText).not.toContain(hexForWinAnsi('Aæo'));
+    expect(pdfText).not.toContain('2022');
+    expect((pdfText.match(new RegExp(hexForWinAnsi('Validar en CPQ la vigencia de los Part Numbers'), 'g')) || []).length).toBe(1);
+    const summary = quoteSummaryText(payload);
     expect(summary).toContain('Cliente Año Ñ');
     expect(summary).toContain('D0N79ZX');
   });
@@ -287,7 +319,38 @@ describe('Instana sizing calculations', () => {
     scenario.general.mode = 'Self-Hosted';
     inventory = calculateInventory(scenario.inventory);
     quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
-    expect(quote.find((line) => line.partNumber === 'D29RTLL')?.unit).toBe('Unidad pendiente de validación comercial');
+    expect(quote.find((line) => line.partNumber === 'D29RTLL')?.unit).toBe('MVS');
+    scenario.inventory.essentialsVirtual = 15;
+    inventory = calculateInventory(scenario.inventory);
+    quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(quote.find((line) => line.partNumber === 'D29RRLL')?.unit).toBe('MVS');
+  });
+
+  it('exports Self-Hosted MVS units to Excel, PDF and copied summary', async () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.inventory.standardPhysical = 20;
+    scenario.inventory.essentialsVirtual = 15;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const logs = calculateLogs(scenario);
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, false);
+    const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
+    const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
+    const payload = { scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations };
+    expect(quoteLines.find((line) => line.partNumber === 'D29RTLL')).toMatchObject({ quantity: 20, unit: 'MVS' });
+    expect(quoteLines.find((line) => line.partNumber === 'D29RRLL')).toMatchObject({ quantity: 15, unit: 'MVS' });
+    const workbook = createScenarioWorkbook(payload);
+    expect(worksheetText(workbook, 'Resumen ejecutivo')).toContain('MVS');
+    expect(worksheetText(workbook, 'Resumen ejecutivo')).toContain('D29RTLL');
+    expect(worksheetText(workbook, 'Resumen ejecutivo')).toContain('D29RRLL');
+    const summary = quoteSummaryText(payload);
+    expect(summary).toContain('D29RTLL, cantidad 20, unidad MVS');
+    expect(summary).toContain('D29RRLL, cantidad 15, unidad MVS');
+    expect(summary).toContain('Validar en CPQ la vigencia de los Part Numbers');
+    const pdfText = new TextDecoder().decode(await createScenarioPdfBlob(payload).arrayBuffer());
+    expect(pdfText).toContain('44323952544C4C');
+    expect(pdfText).toContain('4D5653');
   });
 
   it('calculates logs with independent growth and 1 TB blocks', () => {
@@ -453,11 +516,13 @@ describe('Excel export', () => {
     const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
     const buffer = await workbook.xlsx.writeBuffer();
     expect(buffer.byteLength).toBeGreaterThan(0);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen comercial', 'Part Numbers a cotizar', 'Detalle de MVS', 'Ingesta adicional', 'Supuestos y validaciones']);
-    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
-    expect(quoteSheet?.getColumn(4).values).toContain('D0N7BZX');
-    expect(quoteSheet?.getColumn(4).values).not.toContain('D0RL4ZX');
-    expect(quoteSheet?.getColumn(4).values).not.toContain('D0I5PZX');
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen ejecutivo', 'Detalle del cálculo', 'Capacidades adicionales', 'Catálogo y validaciones']);
+    const summaryText = worksheetText(workbook, 'Resumen ejecutivo');
+    expect(summaryText).toContain('Part Numbers a cotizar');
+    expect(summaryText).toContain('D0N7BZX');
+    expect(summaryText).not.toContain('D0RL4ZX');
+    expect(summaryText).not.toContain('D0I5PZX');
+    expect(workbookText(workbook)).not.toMatch(/\b46\b/);
   });
 
   it('creates Self-Hosted workbook with technical considerations and only Self-Hosted quote lines', async () => {
@@ -477,10 +542,12 @@ describe('Excel export', () => {
     const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
     const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations: [] });
     expect(quoteLines.map((line) => line.partNumber)).toEqual(['D29RTLL']);
-    expect(workbook.getWorksheet('Supuestos y validaciones')).toBeDefined();
-    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
-    expect(quoteSheet?.getColumn(2).values).not.toContain('D0N7BZX');
-    expect(quoteSheet?.getColumn(4).values).not.toContain('D0RL4ZX');
-    expect(quoteSheet?.getColumn(4).values).not.toContain('D0I5PZX');
+    expect(workbook.getWorksheet('Catálogo y validaciones')).toBeDefined();
+    const summaryText = worksheetText(workbook, 'Resumen ejecutivo');
+    expect(summaryText).toContain('D29RTLL');
+    expect(summaryText).toContain('MVS');
+    expect(summaryText).not.toContain('D0N7BZX');
+    expect(summaryText).not.toContain('D0RL4ZX');
+    expect(summaryText).not.toContain('D0I5PZX');
   });
 });

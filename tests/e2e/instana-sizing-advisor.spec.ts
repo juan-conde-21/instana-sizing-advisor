@@ -66,6 +66,80 @@ test('el ejemplo SaaS Standard 23 MVS carga físicos, virtuales y worker nodes',
   await expect(quote(page).locator('tr', { hasText: 'D0N79ZX' })).toContainText('23');
 });
 
+test('ejemplos opcionales permiten comenzar desde cero y quitar el ejemplo', async ({ page }) => {
+  await expect(page.getByTestId('examples-section')).toContainText('Los ejemplos son opcionales');
+  await page.getByTestId('example-saas-23').click();
+  await expect(page.getByTestId('example-saas-23')).toContainText('Escenario cargado');
+  await expect(page.getByTestId('example-state')).toContainText('Ejemplo de origen: SaaS Standard · 23 MVS');
+  await expect(page.getByTestId('example-state')).toContainText('Estado: Escenario cargado');
+  await page.getByTestId('remove-example-button').click();
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('0');
+  await expect(page.getByTestId('example-state')).toHaveCount(0);
+  await expect(quote(page)).not.toContainText('D0N79ZX');
+
+  await page.getByTestId('example-saas-23').click();
+  await page.getByTestId('example-start-blank').click();
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('0');
+  await expect(page.getByTestId('example-state')).toHaveCount(0);
+});
+
+test('editar un ejemplo marca escenario modificado y protege cambios al reemplazar', async ({ page }) => {
+  await page.getByTestId('example-standard-essentials').click();
+  await expect(page.getByTestId('example-state')).toContainText('Estado: Escenario cargado');
+  await fillNumber(page, 'standard-vm-input', '21');
+  await expect(page.getByTestId('example-standard-essentials')).toContainText('Escenario modificado');
+  await expect(page.getByTestId('example-state')).toContainText('Estado: Escenario modificado');
+
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('Se reemplazarán los valores actuales por los del ejemplo seleccionado. ¿Deseas continuar?');
+    await dialog.dismiss();
+  });
+  await page.getByTestId('example-saas-23').click();
+  await expect(page.getByTestId('standard-vm-input')).toHaveValue('21');
+  await expect(page.getByTestId('example-state')).toContainText('SaaS Standard + Essentials');
+
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('Se reemplazarán los valores actuales por los del ejemplo seleccionado. ¿Deseas continuar?');
+    await dialog.accept();
+  });
+  await page.getByTestId('example-saas-23').click();
+  await expect(page.getByTestId('standard-vm-input')).toHaveValue('18');
+  await expect(page.getByTestId('example-state')).toContainText('Ejemplo de origen: SaaS Standard · 23 MVS');
+  await expect(page.getByTestId('example-state')).toContainText('Estado: Escenario cargado');
+});
+
+test('quitar ejemplo modificado solicita confirmación y limpiar elimina estado del ejemplo', async ({ page }) => {
+  await page.getByTestId('example-saas-23').click();
+  await fillNumber(page, 'standard-physical-input', '4');
+  page.once('dialog', async (dialog) => {
+    expect(dialog.message()).toBe('Se eliminarán los valores actuales y se iniciará un cálculo en blanco. ¿Deseas continuar?');
+    await dialog.dismiss();
+  });
+  await page.getByTestId('remove-example-button').click();
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('4');
+  await expect(page.getByTestId('example-state')).toContainText('Escenario modificado');
+
+  page.once('dialog', async (dialog) => {
+    await dialog.accept();
+  });
+  await page.getByTestId('remove-example-button').click();
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('0');
+  await expect(page.getByTestId('example-state')).toHaveCount(0);
+
+  await page.getByTestId('example-saas-23').click();
+  await page.getByTestId('clear-form-button').click();
+  await expect(page.getByTestId('example-state')).toHaveCount(0);
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('0');
+});
+
+test('tarjetas de ejemplo funcionan con teclado', async ({ page }) => {
+  await page.getByTestId('example-start-blank').focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('example-saas-23')).toContainText('Escenario cargado');
+  await expect(page.getByTestId('standard-physical-input')).toHaveValue('2');
+});
+
 test('mínimo comercial de 10 MVS Standard', async ({ page }) => {
   await fillNumber(page, 'standard-physical-input', '5');
   await expect(page.locator('.inventory-edition').first()).toContainText('5 MVS declarados. Se aplica el mínimo comercial de 10 MVS.');
@@ -175,6 +249,8 @@ test('Self-Hosted oculta módulos SaaS y bloquea add-ons', async ({ page }) => {
   await expect(page.getByTestId('synthetic-module')).toHaveCount(0);
   await expect(quote(page)).toContainText('D29RTLL');
   await expect(quote(page)).toContainText('D29RRLL');
+  await expect(quote(page).locator('tr', { hasText: 'D29RTLL' })).toContainText('MVS');
+  await expect(quote(page).locator('tr', { hasText: 'D29RRLL' })).toContainText('MVS');
   await expect(quote(page)).not.toContainText('D0N7BZX');
   await expect(quote(page)).not.toContainText('D0RL4ZX');
   await expect(quote(page)).not.toContainText('D0I5PZX');
@@ -265,11 +341,12 @@ test('Resultado ejecutivo no muestra líneas cero y usa unidad de catálogo Self
   await page.getByTestId('deployment-mode-self-hosted').click();
   await fillNumber(page, 'standard-physical-input', '12');
   await expect(page.getByTestId('result-overview')).toContainText('Cliente u oportunidad');
-  await expect(quote(page).locator('tr', { hasText: 'D29RTLL' })).toContainText('Unidad pendiente de validación comercial');
+  await expect(quote(page).locator('tr', { hasText: 'D29RTLL' })).toContainText('MVS');
   await expect(quote(page)).not.toContainText('D0N7BZX');
   await expect(quote(page)).not.toContainText('D0RL4ZX');
   await expect(quote(page)).not.toContainText('D0I5PZX');
-  await expect(page.getByTestId('result-overview')).toContainText('Part Number con unidad comercial pendiente de validación');
+  await expect(page.getByTestId('result-overview')).toContainText('Validación CPQ');
+  await expect(page.getByTestId('cpq-validation-note')).toContainText('Validar en CPQ la vigencia del Part Number');
 });
 
 test('descargar Excel y PDF genera archivos válidos', async ({ page }) => {
@@ -320,4 +397,106 @@ test('copiar resumen y limpiar restablecen la aplicación', async ({ page, conte
   await expect(page.getByTestId('standard-physical-input')).toHaveValue('0');
   await expect(page.getByTestId('deployment-type-select')).toHaveValue('SaaS');
   await expect(page.getByTestId('example-saas-23')).not.toContainText('Escenario cargado');
+});
+
+async function expectNoGlobalHorizontalScroll(page: Page) {
+  const sizes = await page.evaluate(() => ({
+    documentClient: document.documentElement.clientWidth,
+    documentScroll: document.documentElement.scrollWidth,
+    bodyClient: document.body.clientWidth,
+    bodyScroll: document.body.scrollWidth,
+  }));
+  expect(sizes.documentScroll).toBeLessThanOrEqual(sizes.documentClient + 1);
+  expect(sizes.bodyScroll).toBeLessThanOrEqual(sizes.bodyClient + 1);
+}
+
+async function expectStackedOnMobile(page: Page, selector: string) {
+  const boxes = await page.locator(selector).evaluateAll((elements) => elements.slice(0, 2).map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+  }));
+  expect(boxes.length).toBeGreaterThanOrEqual(2);
+  expect(boxes[1].y).toBeGreaterThan(boxes[0].y + boxes[0].height - 2);
+  expect(boxes[0].width).toBeGreaterThan(300);
+}
+
+for (const viewport of [1440, 1024, 768, 390]) {
+  test(`layout sin scroll horizontal global en ${viewport}px`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport, height: 1000 });
+    await clearState(page);
+    await expectNoGlobalHorizontalScroll(page);
+    await page.getByTestId('example-serverless-only').click();
+    await expectNoGlobalHorizontalScroll(page);
+  });
+}
+
+test('tarjetas de ejemplo mantienen ancho legible en desktop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await clearState(page);
+  const widths = await page.locator('.example-card').evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().width));
+  expect(widths.length).toBeGreaterThanOrEqual(5);
+  for (const width of widths) {
+    expect(width).toBeGreaterThan(250);
+  }
+});
+
+test('datos generales e inputs permanecen dentro de sus tarjetas', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await clearState(page);
+  const generalBox = await page.locator('#datos-generales').boundingBox();
+  const clientBox = await page.getByTestId('client-name-input').boundingBox();
+  expect(generalBox).not.toBeNull();
+  expect(clientBox).not.toBeNull();
+  expect(clientBox!.x).toBeGreaterThanOrEqual(generalBox!.x - 1);
+  expect(clientBox!.x + clientBox!.width).toBeLessThanOrEqual(generalBox!.x + generalBox!.width + 1);
+  await expectNoGlobalHorizontalScroll(page);
+});
+
+test('modalidad y ediciones se apilan en móvil', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await clearState(page);
+  await expectStackedOnMobile(page, '.mode-card');
+  await expectStackedOnMobile(page, '.edition-card');
+});
+
+test('inventario y resultado conservan recorrido vertical', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await clearState(page);
+  await page.getByTestId('example-saas-23').click();
+  const inventoryBox = await page.locator('#inventario').boundingBox();
+  const resultBox = await page.getByTestId('result-overview').boundingBox();
+  const inputBox = await page.getByTestId('standard-physical-input').boundingBox();
+  const cardBox = await page.locator('.inventory-edition').first().boundingBox();
+  expect(inventoryBox).not.toBeNull();
+  expect(resultBox).not.toBeNull();
+  expect(inputBox).not.toBeNull();
+  expect(cardBox).not.toBeNull();
+  expect(resultBox!.y).toBeGreaterThan(inventoryBox!.y + inventoryBox!.height);
+  expect(inputBox!.x).toBeGreaterThanOrEqual(cardBox!.x - 1);
+  expect(inputBox!.x + inputBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1);
+  await expectNoGlobalHorizontalScroll(page);
+});
+
+test('botones de exportación se ven completos en móvil', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await clearState(page);
+  await page.locator('#exportaciones').scrollIntoViewIfNeeded();
+  for (const testId of ['export-pdf-button', 'export-excel-button', 'copy-summary-button', 'clear-form-button']) {
+    const box = await page.getByTestId(testId).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+  }
+  await expectNoGlobalHorizontalScroll(page);
+});
+
+test('tablas usan scroll interno sin desbordar la página', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await clearState(page);
+  await activateSynthetic(page);
+  await page.getByTestId('synthetic-table').scrollIntoViewIfNeeded();
+  const tableWrap = page.getByTestId('synthetic-table').locator('xpath=ancestor::div[contains(@class, "table-wrap")]');
+  const wrapSizes = await tableWrap.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+  expect(wrapSizes.scroll).toBeGreaterThan(wrapSizes.client);
+  await expectNoGlobalHorizontalScroll(page);
 });

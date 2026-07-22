@@ -19,10 +19,10 @@ Fuente principal: `src/rules/instanaRules.ts`. Fórmulas: `src/utils/calculation
 | Escenario 50 MVS | Alternativa comparativa para incrementar licencias base y cuota. | Compara escenario actual vs 50 MVS Standard; solo aplica con confirmación. | `calculateIngest`, `IngestCalculator.tsx` | No cambia cotización hasta confirmar. | Configurado; validar comercialmente. |
 | Logs | Retención 7 días incluida; 30/60/90 días con Part Number. | unidades = ceil(TB considerados) si retención extendida. | `calculateLogs`, `INSTANA_RULES.logs` | 2.2 TB a 30 días = 3 unidades. | Configurado; validar CPQ. |
 | Synthetic | Calcula RU mensuales por tipo de prueba. | ejecuciones = tests × ubicaciones × (43,200 / frecuencia); RU = ejecuciones × tasa. | `calculateSynthetic`, `INSTANA_RULES.synthetic` | RU menor a 30,000 aplica 30 unidades. | Configurado; validar CPQ. |
-| Self-Hosted | Solo cotiza MVS; add-ons SaaS no aplican. | Líneas Standard/Essentials Self-Hosted según MVS licenciados. | `buildQuoteLines`, `QuoteSummary.tsx` | Data Ingest, Logs y D0I5PZX no aparecen. | Configurado; unidad Self-Hosted pendiente. |
+| Self-Hosted | Solo cotiza MVS; add-ons SaaS no aplican. | Líneas Standard/Essentials Self-Hosted según MVS licenciados. | `buildQuoteLines`, `QuoteSummary.tsx` | Data Ingest, Logs y D0I5PZX no aparecen. | Configurado; validar CPQ y condiciones comerciales. |
 | Líneas cero | No se muestran componentes con cantidad 0. | Solo se agregan líneas si quantity > 0. | `buildQuoteLines` | Logs 7 días no genera línea. | Configurado. |
 | Part Numbers | Part Numbers centralizados. | Se seleccionan según modalidad/capacidad. | `INSTANA_RULES.partNumbers`, `catalog` | Standard SaaS usa `D0N79ZX`. | Configurado; validar CPQ y vigencia. |
-| Unidad comercial | Unidad por catálogo. | `commercialUnit` o `commercialUnits`. | `instanaRules.ts` | Self-Hosted: Unidad pendiente de validación comercial. | Pendiente para Self-Hosted. |
+| Unidad comercial | Unidad por catálogo. | `commercialUnit` o `commercialUnits`. | `instanaRules.ts` | Self-Hosted: MVS. SaaS: MVS / mes. | Configurado; validar CPQ, plazo y condiciones comerciales. |
 
 ## Part Numbers configurados
 
@@ -40,4 +40,4 @@ Fuente principal: `src/rules/instanaRules.ts`. Fórmulas: `src/utils/calculation
 
 - Fecha de vigencia del catálogo: pendiente de validación comercial.
 - Fuente comercial definitiva: pendiente de confirmación.
-- Unidad comercial Self-Hosted: pendiente de validación comercial.
+- Unidad Self-Hosted configurada como MVS; validar en CPQ vigencia del Part Number, modalidad de licencia, plazo, precio y condiciones comerciales.

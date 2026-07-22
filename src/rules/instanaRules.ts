@@ -57,14 +57,14 @@ export const INSTANA_RULES = {
   commercialUnits: {
     saasStandard: 'MVS / mes',
     saasEssentials: 'MVS / mes',
-    selfHostedStandard: 'Unidad pendiente de validación comercial',
-    selfHostedEssentials: 'Unidad pendiente de validación comercial',
+    selfHostedStandard: 'MVS',
+    selfHostedEssentials: 'MVS',
   },
   catalog: [
     { id: 'saas-standard', modality: 'SaaS', edition: 'Standard', description: 'IBM Instana Observability Standard SaaS', partNumber: 'D0N79ZX', commercialUnit: 'MVS / mes', minimum: '10 MVS cuando aplica mínimo comercial', quota: '325 GB/MVS/mes', effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
     { id: 'saas-essentials', modality: 'SaaS', edition: 'Essentials', description: 'IBM Instana Observability Essentials SaaS', partNumber: 'D0N77ZX', commercialUnit: 'MVS / mes', minimum: '10 MVS cuando aplica mínimo comercial', quota: '50 GB/MVS/mes', effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
-    { id: 'self-hosted-standard', modality: 'Self-Hosted', edition: 'Standard', description: 'IBM Instana Observability Standard Self-Hosted', partNumber: 'D29RTLL', commercialUnit: 'Unidad pendiente de validación comercial', minimum: '10 MVS cuando aplica mínimo comercial', quota: pending, effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
-    { id: 'self-hosted-essentials', modality: 'Self-Hosted', edition: 'Essentials', description: 'IBM Instana Observability Essentials Self-Hosted', partNumber: 'D29RRLL', commercialUnit: 'Unidad pendiente de validación comercial', minimum: '10 MVS cuando aplica mínimo comercial', quota: pending, effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
+    { id: 'self-hosted-standard', modality: 'Self-Hosted', edition: 'Standard', description: 'IBM Instana Observability Standard Self-Hosted', partNumber: 'D29RTLL', commercialUnit: 'MVS', minimum: '10 MVS cuando aplica mínimo comercial', quota: pending, effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
+    { id: 'self-hosted-essentials', modality: 'Self-Hosted', edition: 'Essentials', description: 'IBM Instana Observability Essentials Self-Hosted', partNumber: 'D29RRLL', commercialUnit: 'MVS', minimum: '10 MVS cuando aplica mínimo comercial', quota: pending, effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
     { id: 'data-ingest-saas', modality: 'SaaS', description: 'Data Ingest adicional SaaS', partNumber: 'D0N7BZX', commercialUnit: 'bloques de 100 GB/mes', blockSize: '100 GB/mes', effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
     { id: 'logs-30-saas', modality: 'SaaS', description: 'Logs in Context 30 días', partNumber: 'D0RL4ZX', commercialUnit: 'bloques de 1 TB mensual', blockSize: '1 TB mensual', effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },
     { id: 'logs-60-saas', modality: 'SaaS', description: 'Logs in Context 60 días', partNumber: 'D0RL8ZX', commercialUnit: 'bloques de 1 TB mensual', blockSize: '1 TB mensual', effectiveDate: pending, source: 'Catálogo comercial configurado en la aplicación', validationStatus: pending },

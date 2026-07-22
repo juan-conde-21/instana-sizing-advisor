@@ -304,15 +304,6 @@ export function buildRecommendations(scenario: ScenarioInput, inventory: Invento
     : scenario.ingest.serverlessOtelGbMonth >= 1000;
   const selfHostedHasSynthetic = scenario.synthetic.some((r) => clampNumber(r.tests) > 0);
 
-  if (!isSaas) {
-    recommendations.push({
-      id: 'self-hosted-unit-validation',
-      title: 'Part Number pendiente de validación.',
-      detail: 'La unidad comercial Self-Hosted debe validarse comercialmente porque el catálogo local no define una unidad específica.',
-      severity: 'info',
-    });
-  }
-
   if (!isSaas && (scenario.logs.tbMonth >= 1 || scenario.selfHostedSizing.logsTbMonth >= 1 || scenario.selfHostedSizing.traceVolume > 0 || selfHostedHasServerless || selfHostedHasSynthetic)) {
     recommendations.push({
       id: 'self-hosted-capacity',

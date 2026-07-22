@@ -4,7 +4,7 @@ import { DeploymentModeCards } from './components/DeploymentModeCards';
 import { DetectedRecommendations } from './components/DetectedRecommendations';
 import { DistributedInventory } from './components/DistributedInventory';
 import { EditionSelection } from './components/EditionSelection';
-import { ExampleCards, type ScenarioExample } from './components/ExampleCards';
+import { ExampleCards, type ExampleStatus, type ScenarioExample } from './components/ExampleCards';
 import { ExportActions } from './components/ExportActions';
 import { GeneralInfo } from './components/GeneralInfo';
 import { IngestCalculator } from './components/IngestCalculator';
@@ -202,6 +202,14 @@ const examples: ScenarioExample[] = [
   },
 ];
 
+function scenarioEquals(left: ScenarioInput, right: ScenarioInput): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isInitialBlankScenario(value: ScenarioInput): boolean {
+  return scenarioEquals(value, defaultScenario);
+}
+
 function clearEditionInventory(inventory: InventoryInput, editions: EditionSelectionType): InventoryInput {
   return {
     ...inventory,
@@ -217,6 +225,7 @@ function clearEditionInventory(inventory: InventoryInput, editions: EditionSelec
 export default function App() {
   const [scenario, setScenario] = useState<ScenarioInput>(initialScenario);
   const [activeExampleId, setActiveExampleId] = useState<string | null>(null);
+  const [exampleStatus, setExampleStatus] = useState<ExampleStatus>('none');
   const [actionStatus, setActionStatus] = useState('');
 
   const inventory = useMemo(() => calculateInventory(scenario.inventory), [scenario.inventory]);
@@ -227,21 +236,52 @@ export default function App() {
   const recommendations = useMemo(() => buildRecommendations(scenario, inventory, ingest, logs, synthetic), [scenario, inventory, ingest, logs, synthetic]);
   const serverlessMinimumApplied = scenario.ingest.serverlessOnly && ingest.standardLicensed === 10 && inventory.standardRaw === 0 && scenario.general.mode === 'SaaS';
 
-  const updateScenario = (next: Partial<ScenarioInput>) => setScenario((current) => {
-    const merged = { ...current, ...next };
-    if (merged.general.mode === 'Self-Hosted') {
-      return { ...merged, addOns: { dataIngest: false, logs: false, syntheticManagedPop: false }, ingest: { ...merged.ingest, serverlessOnly: false, useFiftyMvsScenario: false, fiftyMvsConfirmed: false } };
-    }
-    return merged;
-  });
+  const markManualChange = () => {
+    setExampleStatus((current) => (activeExampleId && current === 'loaded' ? 'modified' : current));
+  };
+
+  const updateScenario = (next: Partial<ScenarioInput>, options: { manual?: boolean } = { manual: true }) => {
+    if (options.manual !== false) markManualChange();
+    setScenario((current) => {
+      const merged = { ...current, ...next };
+      if (merged.general.mode === 'Self-Hosted') {
+        return { ...merged, addOns: { dataIngest: false, logs: false, syntheticManagedPop: false }, ingest: { ...merged.ingest, serverlessOnly: false, useFiftyMvsScenario: false, fiftyMvsConfirmed: false } };
+      }
+      return merged;
+    });
+  };
 
   const updateEditions = (editions: EditionSelectionType) => {
     updateScenario({ editions, inventory: clearEditionInventory(scenario.inventory, editions) });
   };
 
+  const resetScenario = (statusMessage = 'Formulario restablecido.') => {
+    setScenario(cloneScenario(defaultScenario));
+    setActiveExampleId(null);
+    setExampleStatus('none');
+    setActionStatus(statusMessage);
+  };
+
+  const hasManualChanges = () => (activeExampleId ? exampleStatus === 'modified' : !isInitialBlankScenario(scenario));
+
+  const confirmReplace = (message: string) => !hasManualChanges() || window.confirm(message);
+
   const handleExample = (example: ScenarioExample) => {
+    if (activeExampleId === example.id && exampleStatus === 'loaded') return;
+    if (!confirmReplace('Se reemplazarán los valores actuales por los del ejemplo seleccionado. ¿Deseas continuar?')) return;
     setScenario(cloneScenario(example.scenario));
     setActiveExampleId(example.id);
+    setExampleStatus('loaded');
+    setActionStatus('Ejemplo cargado.');
+  };
+
+  const handleStartBlank = () => {
+    resetScenario('Cálculo en blanco listo.');
+  };
+
+  const handleClearActiveExample = () => {
+    if (exampleStatus === 'modified' && !window.confirm('Se eliminarán los valores actuales y se iniciará un cálculo en blanco. ¿Deseas continuar?')) return;
+    resetScenario('Ejemplo quitado.');
   };
 
   const payload = { scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations };
@@ -262,9 +302,7 @@ export default function App() {
     }
   };
   const handleClear = () => {
-    setScenario(cloneScenario(defaultScenario));
-    setActiveExampleId(null);
-    setActionStatus('Formulario restablecido.');
+    resetScenario();
   };
 
   return (
@@ -280,11 +318,18 @@ export default function App() {
       </header>
 
       <main className="wrap commercial-flow">
-        <ExampleCards examples={examples} activeExampleId={activeExampleId} onSelect={handleExample} />
-
         <section className="notice" id="alcance">
           <strong>Estimación referencial.</strong> Esta herramienta entrega una estimación referencial. Los Part Numbers, cantidades, condiciones y vigencia comercial deben validarse antes de emitir la cotización.
         </section>
+
+        <ExampleCards
+          examples={examples}
+          activeExampleId={activeExampleId}
+          exampleStatus={exampleStatus}
+          onSelect={handleExample}
+          onStartBlank={handleStartBlank}
+          onClearActiveExample={handleClearActiveExample}
+        />
 
         <GeneralInfo value={scenario.general} onChange={(general) => updateScenario({ general })} />
         <DeploymentModeCards value={scenario.general} onChange={(general) => updateScenario({ general })} />

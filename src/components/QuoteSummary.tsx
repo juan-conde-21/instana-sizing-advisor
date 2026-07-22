@@ -48,6 +48,7 @@ export function QuoteSummary({ scenario, lines }: Props) {
           </tbody>
         </table>
       </div>
+      <p className="note" data-testid="cpq-validation-note">Validar en CPQ la vigencia del Part Number, modalidad de licencia, plazo, precio y condiciones comerciales aplicables.</p>
       {isSelfHosted && (
         <section className="technical-notes" data-testid="self-hosted-notes">
           <h4>Consideraciones Self-Hosted</h4>

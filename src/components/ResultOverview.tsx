@@ -21,7 +21,6 @@ export function ResultOverview({ scenario, inventory, ingest, logs, synthetic, l
   if (hasMinimum) warnings.push('Mínimo comercial aplicado.');
   if (scenario.logs.retentionDays === 7 && scenario.addOns.logs) warnings.push('Retención incluida, sin licencia adicional de logs.');
   if (isSelfHosted) warnings.push('Sizing Self-Hosted pendiente de validación técnica.');
-  if (lines.some((line) => line.unit.includes('pendiente'))) warnings.push('Part Number con unidad comercial pendiente de validación.');
 
   return (
     <section className="result-hero" id="resultado-principal" data-testid="result-overview">
@@ -52,7 +51,7 @@ export function ResultOverview({ scenario, inventory, ingest, logs, synthetic, l
       )}
       <div className="result-notes">
         <p><strong>Supuestos:</strong> las cantidades provienen del inventario declarado, los mínimos comerciales configurados y las capacidades SaaS activadas.</p>
-        <p><strong>Datos pendientes:</strong> validar condiciones comerciales, vigencia y cualquier unidad marcada como pendiente.</p>
+        <p><strong>Validación CPQ:</strong> validar vigencia del Part Number, modalidad de licencia, plazo, precio y condiciones comerciales aplicables.</p>
         {warnings.map((warning) => <p key={warning}><strong>Advertencia:</strong> {warning}</p>)}
       </div>
       {scenario.ingest.serverlessOnly && ingest.standardLicensed === 10 && inventory.standardRaw === 0 && <p className="note strong-note">Alcance solo serverless/OpenTelemetry: Base comercial mínima de 10 MVS Standard. Esto no implica instalar físicamente 10 agentes.</p>}
