@@ -10,6 +10,7 @@ interface Props {
 
 export function AddOnToggles({ scenario, ingest, logs, synthetic, onChange }: Props) {
   const isSaas = scenario.general.mode === 'SaaS';
+  if (!isSaas) return null;
   const items: Array<{ key: keyof AddOns; title: string; detail: string; recommended: boolean; testId: string; disabled?: boolean }> = [
     { key: 'dataIngest', title: 'Data ingest adicional', detail: isSaas ? 'Bloques SaaS de 100 GB/mes.' : 'Referencia técnica para dimensionamiento de storage/capacidad en Self-Hosted.', recommended: isSaas && ingest.dataIngestUnits > 0, testId: 'addon-data-ingest-toggle', disabled: !isSaas },
     { key: 'logs', title: 'Logs in Context', detail: isSaas ? 'Retención extendida y volumen mensual.' : 'En Self-Hosted se considera dentro del dimensionamiento técnico de storage, retención y plataforma.', recommended: isSaas && logs.units > 0, testId: 'addon-logs-toggle', disabled: !isSaas },
@@ -17,11 +18,12 @@ export function AddOnToggles({ scenario, ingest, logs, synthetic, onChange }: Pr
   ];
 
   return (
-    <section className="card span-12" id="add-ons">
+    <section className="section-card" id="capacidades-adicionales">
       <div className="card-header">
         <div>
-          <h3>Add-ons opcionales</h3>
-          <p className="sub">Una recomendación detectada no se incluye en el resumen hasta que el add-on esté activado.</p>
+          <p className="eyebrow">Paso 4</p>
+          <h2>Capacidades adicionales</h2>
+          <p className="sub">Activa únicamente los componentes que formen parte del alcance. Una recomendación detectada no se incluye en el resumen hasta que el add-on esté activado.</p>
         </div>
       </div>
       <div className="toggle-grid">

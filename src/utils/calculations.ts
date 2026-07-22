@@ -105,20 +105,23 @@ export function calculateIngest(scenario: ScenarioInput, inventory: InventoryRes
     ? (scenario.ingest.useTransactionalMode ? transactionalProjectedServerlessOtelGb : manualProjectedServerlessOtelGb)
     : 0;
 
+  const serverlessMinimumApplied = scenario.general.mode === 'SaaS' && dataIngestEnabled && scenario.ingest.serverlessOnly && inventory.standardRaw === 0 && inventory.essentialsRaw === 0 && projectedServerlessOtelGb > 0;
+  const standardLicensedForIngest = serverlessMinimumApplied ? INSTANA_RULES.commercialMinimumMvs : inventory.standardLicensed;
+
   const currentScenario = buildIngestScenario(
     'Escenario actual',
-    inventory.standardLicensed,
+    standardLicensedForIngest,
     inventory.essentialsLicensed,
     inventory,
     scenario.ingest.agentConsumptionPercent,
     projectedServerlessOtelGb,
   );
 
-  const fiftyMvsScenario = inventory.standardLicensed < 50 && projectedServerlessOtelGb > 0
+  const fiftyMvsScenario = standardLicensedForIngest < 50 && projectedServerlessOtelGb > 0
     ? buildIngestScenario('Escenario 50 MVS', 50, inventory.essentialsLicensed, inventory, scenario.ingest.agentConsumptionPercent, projectedServerlessOtelGb)
     : null;
 
-  const selectedScenario = scenario.ingest.useFiftyMvsScenario && fiftyMvsScenario ? 'fifty-mvs' : 'current';
+  const selectedScenario = scenario.ingest.useFiftyMvsScenario && scenario.ingest.fiftyMvsConfirmed && fiftyMvsScenario ? 'fifty-mvs' : 'current';
   const selected = selectedScenario === 'fifty-mvs' && fiftyMvsScenario ? fiftyMvsScenario : currentScenario;
   const dataIngestUnits = scenario.general.mode === 'SaaS' ? selected.dataIngestUnits : 0;
   const gbToLicense = scenario.general.mode === 'SaaS' ? selected.gbToLicense : 0;
@@ -186,15 +189,17 @@ export function calculateSynthetic(rows: SyntheticRowInput[], growthPercent = 0,
 export function buildQuoteLines(scenario: ScenarioInput, inventory: InventoryResult, ingest: IngestResult, logs: LogsResult, synthetic: SyntheticResult): QuoteLine[] {
   const lines: QuoteLine[] = [];
   const isSaas = scenario.general.mode === 'SaaS';
-  const standardQuantity = isSaas && scenario.ingest.useFiftyMvsScenario && ingest.fiftyMvsScenario ? 50 : inventory.standardLicensed;
+  const standardQuantity = isSaas ? ingest.standardLicensed : inventory.standardLicensed;
 
   if (standardQuantity > 0) {
     lines.push({
       component: isSaas ? 'Instana Observability Standard SaaS' : 'Instana Observability Standard Self-Hosted',
       partNumber: isSaas ? INSTANA_RULES.partNumbers.saasStandard : INSTANA_RULES.partNumbers.selfHostedStandard,
       quantity: standardQuantity,
-      unit: 'MVS / mes',
-      explanation: 'MVS licenciados para máquinas físicas, máquinas virtuales y Kubernetes worker nodes Standard.',
+      unit: isSaas ? INSTANA_RULES.commercialUnits.saasStandard : INSTANA_RULES.commercialUnits.selfHostedStandard,
+      explanation: scenario.ingest.serverlessOnly && inventory.standardRaw === 0 && isSaas
+        ? 'Base comercial mínima de 10 MVS Standard para alcance solo serverless/OpenTelemetry. No implica instalar físicamente 10 agentes.'
+        : 'MVS licenciados para máquinas físicas, máquinas virtuales y Kubernetes worker nodes Standard.',
     });
   }
 
@@ -203,7 +208,7 @@ export function buildQuoteLines(scenario: ScenarioInput, inventory: InventoryRes
       component: isSaas ? 'Instana Observability Essentials SaaS' : 'Instana Observability Essentials Self-Hosted',
       partNumber: isSaas ? INSTANA_RULES.partNumbers.saasEssentials : INSTANA_RULES.partNumbers.selfHostedEssentials,
       quantity: inventory.essentialsLicensed,
-      unit: 'MVS / mes',
+      unit: isSaas ? INSTANA_RULES.commercialUnits.saasEssentials : INSTANA_RULES.commercialUnits.selfHostedEssentials,
       explanation: 'MVS licenciados para máquinas físicas, máquinas virtuales y Kubernetes worker nodes Essentials.',
     });
   }
@@ -255,13 +260,22 @@ export function buildRecommendations(scenario: ScenarioInput, inventory: Invento
     });
   }
 
-  if (isSaas && ingest.fiftyMvsScenario && inventory.standardLicensed < 50) {
+  if (isSaas && ingest.fiftyMvsScenario && ingest.currentScenario.standardLicensed < 50) {
     recommendations.push({
       id: 'fifty-mvs',
-      title: 'Evaluar escenario de 50 MVS para serverless/OpenTelemetry en crecimiento.',
-      detail: `Actual: ${formatNumber(ingest.currentScenario.dataIngestUnits)} unidades Data Ingest. 50 MVS: ${formatNumber(ingest.fiftyMvsScenario.dataIngestUnits)} unidades Data Ingest.`,
+      title: 'Escenario alternativo disponible: 50 MVS.',
+      detail: `Actual: ${formatNumber(ingest.currentScenario.dataIngestUnits)} unidades Data Ingest. 50 MVS: ${formatNumber(ingest.fiftyMvsScenario.dataIngestUnits)} unidades Data Ingest. Requiere confirmación explícita antes de modificar la cotización.`,
       severity: 'info',
       action: 'fiftyMvs',
+    });
+  }
+
+  if (isSaas && scenario.addOns.logs && !logs.isExtendedRetention) {
+    recommendations.push({
+      id: 'logs-included',
+      title: 'Retención incluida.',
+      detail: 'La retención seleccionada está incluida y no genera línea adicional de Logs in Context.',
+      severity: 'info',
     });
   }
 
@@ -290,7 +304,16 @@ export function buildRecommendations(scenario: ScenarioInput, inventory: Invento
     : scenario.ingest.serverlessOtelGbMonth >= 1000;
   const selfHostedHasSynthetic = scenario.synthetic.some((r) => clampNumber(r.tests) > 0);
 
-  if (!isSaas && (scenario.logs.tbMonth >= 1 || selfHostedHasServerless || selfHostedHasSynthetic)) {
+  if (!isSaas) {
+    recommendations.push({
+      id: 'self-hosted-unit-validation',
+      title: 'Part Number pendiente de validación.',
+      detail: 'La unidad comercial Self-Hosted debe validarse comercialmente porque el catálogo local no define una unidad específica.',
+      severity: 'info',
+    });
+  }
+
+  if (!isSaas && (scenario.logs.tbMonth >= 1 || scenario.selfHostedSizing.logsTbMonth >= 1 || scenario.selfHostedSizing.traceVolume > 0 || selfHostedHasServerless || selfHostedHasSynthetic)) {
     recommendations.push({
       id: 'self-hosted-capacity',
       title: 'Sizing técnico Self-Hosted requerido',

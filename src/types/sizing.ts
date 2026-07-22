@@ -27,6 +27,11 @@ export interface AddOns {
   syntheticManagedPop: boolean;
 }
 
+export interface EditionSelection {
+  standard: boolean;
+  essentials: boolean;
+}
+
 export interface ServerlessWorkloadInput {
   id: string;
   name: string;
@@ -45,15 +50,28 @@ export interface IngestInput {
   agentConsumptionPercent: number;
   growthPercent: number;
   serverlessOtelGbMonth: number;
+  serverlessOnly: boolean;
   useTransactionalMode: boolean;
   transactionalWorkloads: ServerlessWorkloadInput[];
   useFiftyMvsScenario: boolean;
+  fiftyMvsConfirmed: boolean;
 }
 
 export interface LogsInput {
   retentionDays: LogRetention;
   tbMonth: number;
   growthPercent: number;
+}
+
+export interface SelfHostedSizingInput {
+  traceVolume: number;
+  traceVolumeUnit: 'GB/día' | 'GB/mes';
+  logsTbMonth: number;
+  retention: string;
+  highAvailability: 'Por confirmar' | 'Sí' | 'No';
+  environments: number;
+  growthPercent: number;
+  notes: string;
 }
 
 export interface SyntheticRowInput {
@@ -67,10 +85,12 @@ export interface SyntheticRowInput {
 
 export interface ScenarioInput {
   general: GeneralInfo;
+  editions: EditionSelection;
   inventory: InventoryInput;
   addOns: AddOns;
   ingest: IngestInput;
   logs: LogsInput;
+  selfHostedSizing: SelfHostedSizingInput;
   synthetic: SyntheticRowInput[];
   syntheticGrowthPercent: number;
 }

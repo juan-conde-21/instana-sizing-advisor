@@ -7,24 +7,18 @@ interface Props {
 
 export function GeneralInfo({ value, onChange }: Props) {
   return (
-    <section className="card span-12" id="datos-generales">
-      <div className="card-header">
+    <section className="section-card" id="datos-generales">
+      <div className="section-heading">
         <div>
-          <h3>Datos generales</h3>
-          <p className="sub">Contexto del escenario y modalidad de despliegue.</p>
+          <p className="eyebrow">Alcance</p>
+          <h2>Datos generales del escenario</h2>
+          <p>Completa el contexto de la oportunidad para que el Excel y el resumen queden identificados.</p>
         </div>
       </div>
       <div className="form-grid">
         <label>
           Cliente
           <input data-testid="client-name-input" value={value.client} onChange={(event) => onChange({ ...value, client: event.target.value })} placeholder="Nombre del cliente" />
-        </label>
-        <label>
-          Modalidad
-          <select data-testid="deployment-type-select" value={value.mode} onChange={(event) => onChange({ ...value, mode: event.target.value as GeneralInfoType['mode'], region: event.target.value === 'Self-Hosted' ? 'No aplica / Self-Hosted' : value.region })}>
-            <option>SaaS</option>
-            <option>Self-Hosted</option>
-          </select>
         </label>
         <label>
           Ambiente
