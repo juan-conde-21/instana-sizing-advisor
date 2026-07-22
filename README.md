@@ -15,11 +15,15 @@ URL prevista de GitHub Pages:
 
 https://juan-conde-21.github.io/instana-sizing-advisor/
 
-Disponible después de habilitar GitHub Pages y completar el primer despliegue mediante GitHub Actions.
+Disponible después de completar el despliegue mediante GitHub Pages.
 
 ## Capturas
 
-Las capturas de documentación deben mantenerse en `docs/images/` y no deben contener datos reales de clientes. La carpeta `docs/` debe estar escribible por el usuario de trabajo antes de generar esas imágenes.
+Capturas generadas con datos ficticios de ejemplo.
+
+![Pantalla inicial](docs/images/home.png)
+
+![Resultado principal](docs/images/result.png)
 
 ## Principales funcionalidades
 
@@ -115,10 +119,13 @@ docs/                Documentación funcional, técnica y de despliegue.
 
 ## Documentación adicional
 
-- [Maqueta de referencia aprobada](docs/Maqueta_IBM_Instana_Calculadora_Comercial_v2.html)
+- [Guía de usuario](docs/USER_GUIDE.md)
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Reglas comerciales](docs/COMMERCIAL_RULES.md)
+- [Pruebas y QA](docs/TESTING.md)
+- [Despliegue](docs/DEPLOYMENT.md)
+- [Mantenimiento](docs/MAINTENANCE.md)
 - [Changelog](CHANGELOG.md)
-
-Los documentos `docs/USER_GUIDE.md`, `docs/ARCHITECTURE.md`, `docs/COMMERCIAL_RULES.md`, `docs/TESTING.md`, `docs/DEPLOYMENT.md` y `docs/MAINTENANCE.md` están pendientes de creación cuando la carpeta `docs/` tenga permisos de escritura para el usuario de trabajo.
 
 ## Advertencia comercial
 

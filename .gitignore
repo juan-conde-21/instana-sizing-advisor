@@ -15,6 +15,7 @@ test-results/
 *.xls
 *.pdf
 *.png
+!docs/images/*.png
 *.jpg
 *.jpeg
 *.webp
