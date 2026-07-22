@@ -1,115 +1,152 @@
-# Instana Sizing Advisor
+# IBM Instana Observability – Calculadora comercial de licenciamiento
 
-Aplicación web para orientar el sizing referencial de **IBM Instana Observability** distribuido. Facilita el cálculo de MVS, consumo de ingesta, Logs in Context, Synthetic Managed PoP y la generación de una cotización referencial exportable a Excel.
+[![CI](https://github.com/juan-conde-21/instana-sizing-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/juan-conde-21/instana-sizing-advisor/actions/workflows/ci.yml)
+[![Deploy GitHub Pages](https://github.com/juan-conde-21/instana-sizing-advisor/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/juan-conde-21/instana-sizing-advisor/actions/workflows/deploy-pages.yml)
 
-> **Aviso**: Esta herramienta entrega estimaciones referenciales. Los valores finales deben validarse con el equipo de ventas IBM y el distribuidor autorizado correspondiente.
+## Descripción
 
----
+Aplicación web para orientar el sizing referencial de IBM Instana Observability distribuido. Permite estimar escenarios de IBM Instana SaaS e IBM Instana Self-Hosted, separando Standard, Essentials, MVS, Data Ingest, Logs in Context, Synthetic, escenarios exclusivamente serverless/OpenTelemetry y escenarios mixtos con agentes más serverless.
 
-## Características
-
-- **Modalidades SaaS y Self-Hosted** con lógica diferenciada de add-ons y part numbers
-- **Inventario MVS** — Standard y Essentials (físicos, virtuales, Kubernetes workers) con mínimo comercial de 10 MVS
-- **Ingesta serverless/OpenTelemetry** — modo manual o transaccional, con comparación de escenario 50 MVS
-- **Logs in Context** — retención 7, 30, 60 y 90 días, bloques de 1 TB mensual
-- **Synthetic Managed PoP** — API Simple, API Script y Browser Test con mínimo de 30 unidades
-- **Add-ons opcionales** completamente aislados: activar/desactivar no afecta otras secciones
-- **Exportación Excel** — resumen ejecutivo, inventario, ingesta, logs, synthetic y cotización en un solo archivo `.xlsx`
-- **Recomendaciones automáticas** — detecta situaciones de sizing y sugiere acciones
-- **Sin precios** — la herramienta entrega únicamente cantidades, unidades y part numbers de referencia
-
----
+Esta herramienta entrega una estimación referencial. Los Part Numbers, cantidades, unidades comerciales, condiciones y vigencia deben validarse contra CPQ antes de emitir una cotización.
 
 ## Demo
 
-La aplicación está publicada en GitHub Pages:
+URL prevista de GitHub Pages:
 
-**[https://juan-conde-21.github.io/instana-sizing-advisor/](https://juan-conde-21.github.io/instana-sizing-advisor/)**
+https://juan-conde-21.github.io/instana-sizing-advisor/
 
----
+Disponible después de completar el despliegue mediante GitHub Pages.
+
+## Capturas
+
+Capturas generadas con datos ficticios de ejemplo.
+
+![Pantalla inicial](docs/images/home.png)
+
+![Resultado principal](docs/images/result.png)
+
+## Principales funcionalidades
+
+- Flujo comercial en español.
+- Explicación de MVS y de qué infraestructura se debe contar.
+- Inventario por servidores físicos, servidores virtuales y worker nodes.
+- Ediciones Standard y Essentials calculadas por separado.
+- Aplicación del mínimo comercial configurado.
+- Escenario solo serverless/OpenTelemetry.
+- Escenario con agentes más serverless/OpenTelemetry.
+- Comparación opcional de escenario de 50 MVS.
+- Cálculo de Data Ingest adicional SaaS.
+- Logs in Context con retención incluida y extendida.
+- Synthetic con RU, mínimo comercial y unidades a cotizar.
+- Self-Hosted con licenciamiento MVS y datos para sizing técnico separado.
+- Ejemplos precargados editables.
+- Resultado principal ejecutivo.
+- Exportación Excel XLSX.
+- Exportación PDF.
+- Copiar resumen al portapapeles.
+- Limpiar formulario.
+- Diseño responsive para desktop, tablet y móvil.
+
+## Reglas básicas
+
+- Servidor físico = 1 MVS.
+- Servidor virtual = 1 MVS.
+- Worker node = 1 MVS.
+- Pods y contenedores no se cuentan como MVS.
+- Standard y Essentials se calculan por separado.
+- La misma infraestructura no debe duplicarse entre Standard y Essentials.
+- No se generan líneas de cotización con cantidad cero.
+- El escenario solo serverless utiliza la base comercial configurada cuando corresponde.
+- Los excesos de ingesta se calculan después de considerar la cuota incluida.
+- Self-Hosted no cotiza add-ons SaaS de Data Ingest, Logs in Context ni Synthetic Managed PoP.
+
+La fuente operativa de reglas, Part Numbers, cuotas, mínimos y unidades comerciales está en `src/rules/instanaRules.ts`.
 
 ## Tecnologías
 
-| Capa | Tecnología |
-|------|-----------|
-| Frontend | React 18 + TypeScript |
-| Build | Vite |
-| Excel | ExcelJS |
-| Tests unitarios | Vitest |
-| Tests E2E | Playwright |
-| CI/CD | GitHub Actions → GitHub Pages |
+Según `package.json`, el proyecto utiliza:
 
----
+- React 19.
+- TypeScript 5.
+- Vite 6.
+- ExcelJS.
+- Vitest.
+- Playwright.
+- `@vitejs/plugin-react`.
 
-## Desarrollo local
+## Requisitos
 
-### Requisitos
+El repositorio no define actualmente un campo `engines` en `package.json`. Las pruebas y build se validaron con el stack actual y los workflows usan Node.js 20. Se recomienda usar Node.js 20 LTS o una versión LTS compatible, y validar cualquier cambio de versión ejecutando la batería completa de QA.
 
-- Node.js 18+
-- npm 9+
-
-### Instalación y arranque
+## Instalación local
 
 ```bash
-git clone https://github.com/juan-conde-21/instana-sizing-advisor.git
-cd instana-sizing-advisor
-npm install
+npm ci
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:5173`.
+La aplicación queda disponible en el puerto configurado por Vite, normalmente `http://localhost:5173`.
 
-### Scripts disponibles
+## Validación
 
-| Comando | Descripción |
-|---------|-------------|
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` | Build de producción en `dist/` |
-| `npm run preview` | Previsualización del build |
-| `npm test` | Tests unitarios con Vitest |
-| `npm run test:e2e` | Tests E2E con Playwright |
-| `npm run lint` | Lint con ESLint |
+```bash
+npm run lint
+npm test
+npm run build
+npm run test:e2e
+npm audit --omit=dev
+```
 
----
+## Vista de producción local
 
-## Despliegue
-
-El despliegue a GitHub Pages se realiza automáticamente al hacer push a la rama `main` mediante GitHub Actions (`.github/workflows/deploy-pages.yml`).
-
-Para configurar el despliegue en un fork:
-
-1. En el repositorio → **Settings → Pages** → Source: **GitHub Actions**
-2. Hacer push a `main`; el workflow construye y publica automáticamente
-
----
+```bash
+npm run build
+npm run preview
+```
 
 ## Estructura del proyecto
 
-```
+```text
 src/
-├── components/          # Componentes React por sección
-├── rules/               # Reglas comerciales centralizadas (instanaRules.ts)
-├── types/               # Tipos TypeScript del dominio
-└── utils/
-    ├── calculations.ts  # Motor de cálculo
-    └── exportExcel.ts   # Generación Excel con ExcelJS
-tests/
-└── e2e/                 # Tests Playwright
+  components/        Componentes React por sección del flujo comercial.
+  rules/             Catálogo comercial y reglas configuradas.
+  types/             Tipos TypeScript del dominio de sizing.
+  utils/             Motor de cálculo, reporting, Excel y PDF.
+tests/e2e/           Pruebas end-to-end con Playwright.
+.github/workflows/   Workflows de CI y despliegue a GitHub Pages.
+docs/                Documentación funcional, técnica y de despliegue.
 ```
 
----
+## Documentación adicional
 
-## Reglas comerciales implementadas
+- [Guía de usuario](docs/USER_GUIDE.md)
+- [Arquitectura](docs/ARCHITECTURE.md)
+- [Reglas comerciales](docs/COMMERCIAL_RULES.md)
+- [Pruebas y QA](docs/TESTING.md)
+- [Despliegue](docs/DEPLOYMENT.md)
+- [Mantenimiento](docs/MAINTENANCE.md)
+- [Changelog](CHANGELOG.md)
 
-- **Mínimo comercial**: 10 MVS licenciados cuando el inventario declarado está entre 1 y 9 MVS
-- **Cuota SaaS incluida**: Standard 325 GB/MVS · mes, Essentials 50 GB/MVS · mes
-- **Data Ingest**: bloques de 100 GB; se descuenta el remanente de la cuota base antes de licenciar
-- **Logs in Context**: retención 7 días incluida; extensiones de 30/60/90 días en bloques de 1 TB mensual
-- **Synthetic Managed PoP**: mínimo 30 unidades = 30 000 RU/mes
-- **Self-Hosted**: add-ons SaaS (Data Ingest, Logs in Context, Synthetic Managed PoP) no aplican
+## Advertencia comercial
 
----
+Esta herramienta entrega una estimación referencial. Los Part Numbers, cantidades, unidades comerciales, condiciones y vigencia deben validarse contra CPQ antes de emitir una cotización.
+
+## Estado del proyecto
+
+Última auditoría local registrada:
+
+- `npm run lint`: aprobado.
+- `npm test`: aprobado, 29 pruebas unitarias.
+- `npm run build`: aprobado.
+- `npm run test:e2e`: aprobado, 22 pruebas E2E.
+- `npm audit --omit=dev`: aprobado, 0 vulnerabilidades.
+
+Pendientes comerciales conocidos:
+
+- Validar vigencia de Part Numbers contra CPQ.
+- Validar unidades comerciales Self-Hosted.
+- Validar condiciones comerciales antes de emitir cotización.
 
 ## Licencia
 
-Este proyecto es una herramienta de referencia interna. Consultar con IBM o el distribuidor autorizado antes de usar los valores generados en propuestas comerciales formales.
+Licencia de uso pendiente de definición por el propietario del repositorio.

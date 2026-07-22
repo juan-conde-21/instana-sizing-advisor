@@ -12,10 +12,11 @@ export function QuoteSummary({ scenario, lines }: Props) {
   const isSelfHosted = scenario.general.mode === 'Self-Hosted';
 
   return (
-    <section className="card span-12" id="resumen">
+    <section className="section-card" id="part-numbers">
       <div className="card-header">
         <div>
-          <h3>Resumen de cotización</h3>
+          <p className="eyebrow">Part Numbers</p>
+          <h2>Part Numbers a cotizar</h2>
           <p className="sub">Solo aquí se muestran part numbers. No se incluyen componentes con cantidad cero.</p>
         </div>
       </div>
@@ -50,9 +51,9 @@ export function QuoteSummary({ scenario, lines }: Props) {
       {isSelfHosted && (
         <section className="technical-notes" data-testid="self-hosted-notes">
           <h4>Consideraciones Self-Hosted</h4>
-          <p>En despliegues Self-Hosted, los add-ons SaaS de Data Ingest, Logs in Context y Synthetic Managed PoP no se incluyen como componentes de cotización. Estos volúmenes deben considerarse dentro del dimensionamiento técnico de la plataforma Instana, incluyendo backend, storage, retención, capacidad de ingesta y PoP privado si aplica.</p>
-          {scenario.ingest.serverlessOtelGbMonth > 0 || scenario.ingest.transactionalWorkloads.length > 0 ? <p>La ingesta declarada debe considerarse como referencia para estimar capacidad de backend, procesamiento y almacenamiento.</p> : null}
-          {scenario.logs.tbMonth > 0 ? <p>El volumen de logs debe considerarse para estimar storage, retención e impacto en la plataforma Self-Hosted.</p> : null}
+          <p>En despliegues Self-Hosted, los add-ons SaaS de Data Ingest, Logs in Context y Synthetic Managed PoP no se incluyen como componentes de cotización. Estos volúmenes deben considerarse dentro del dimensionamiento técnico de la plataforma Instana, incluyendo backend, storage, retención, capacidad de ingesta y PoP privado si aplica.</p><p>Esta calculadora estima las licencias MVS. El dimensionamiento definitivo de CPU, memoria, nodos y almacenamiento debe validarse con la herramienta o guía técnica de sizing de Instana.</p>
+          {scenario.selfHostedSizing.traceVolume > 0 || scenario.ingest.serverlessOtelGbMonth > 0 || scenario.ingest.transactionalWorkloads.length > 0 ? <p>La ingesta declarada debe considerarse como referencia para estimar capacidad de backend, procesamiento y almacenamiento.</p> : null}
+          {scenario.selfHostedSizing.logsTbMonth > 0 || scenario.logs.tbMonth > 0 ? <p>El volumen de logs debe considerarse para estimar storage, retención e impacto en la plataforma Self-Hosted.</p> : null}
           {hasSyntheticDeclared(scenario) ? <p>Las pruebas Synthetic desde PoP privado deben considerarse en el dimensionamiento del PoP y su infraestructura asociada.</p> : null}
         </section>
       )}
