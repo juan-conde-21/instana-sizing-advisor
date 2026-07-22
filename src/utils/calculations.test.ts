@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { ScenarioInput } from '../types/sizing';
 import { buildQuoteLines, buildRecommendations, calculateIngest, calculateInventory, calculateLogs, calculateSynthetic } from './calculations';
 import { createScenarioWorkbook } from './exportExcel';
+import { createScenarioPdfBlob } from './exportPdf';
+import { quoteSummaryText } from './reporting';
 
 const baseScenario = (): ScenarioInput => ({
   general: { client: 'QA', mode: 'SaaS', environment: 'Producción', region: 'US', notes: '' },
+  editions: { standard: true, essentials: false },
   inventory: {
     standardPhysical: 0,
     standardVirtual: 0,
@@ -18,26 +21,179 @@ const baseScenario = (): ScenarioInput => ({
     agentConsumptionPercent: 80,
     growthPercent: 20,
     serverlessOtelGbMonth: 0,
+    serverlessOnly: false,
     useTransactionalMode: false,
     transactionalWorkloads: [],
     useFiftyMvsScenario: false,
+    fiftyMvsConfirmed: false,
   },
   logs: { retentionDays: 7, tbMonth: 0, growthPercent: 0 },
+  selfHostedSizing: { traceVolume: 0, traceVolumeUnit: 'GB/día', logsTbMonth: 0, retention: 'Por confirmar', highAvailability: 'Por confirmar', environments: 1, growthPercent: 20, notes: '' },
   synthetic: [
     { id: 'apiSimple', label: 'API Simple', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.025 },
     { id: 'apiScript', label: 'API Script', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.042 },
     { id: 'browserTest', label: 'Browser Test', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 1 },
   ],
   syntheticGrowthPercent: 0,
+
 });
 
 describe('Instana sizing calculations', () => {
+  it('creates professional workbook sheets without empty quote rows and preserves Spanish text', async () => {
+    const scenario = baseScenario();
+    scenario.general.client = 'Cliente Ñandú Año';
+    scenario.inventory.standardPhysical = 5;
+    scenario.addOns.logs = true;
+    scenario.logs.retentionDays = 30;
+    scenario.logs.tbMonth = 2.2;
+    const inventory = calculateInventory(scenario.inventory);
+    const logs = calculateLogs(scenario);
+    const ingest = calculateIngest(scenario, inventory);
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, false);
+    const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
+    const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
+    const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    expect(workbook.getWorksheet('Resumen comercial')).toBeDefined();
+    expect(workbook.getWorksheet('Part Numbers a cotizar')).toBeDefined();
+    expect(workbook.worksheets.every((sheet) => sheet.rowCount > 0)).toBe(true);
+    const buffer = await workbook.xlsx.writeBuffer();
+    expect(buffer.byteLength).toBeGreaterThan(0);
+    const summaryValues = workbook.getWorksheet('Resumen comercial')?.getColumn(2).values.join(' ');
+    expect(summaryValues).toContain('Ñandú Año');
+    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
+    expect(quoteSheet?.getColumn(6).values).not.toContain(0);
+  });
+
+  it('creates a valid PDF blob with Spanish words and no empty quote sections', async () => {
+    const scenario = baseScenario();
+    scenario.general.client = 'Cliente Año Ñ';
+    scenario.inventory.standardPhysical = 12;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const logs = calculateLogs(scenario);
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, false);
+    const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
+    const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
+    const pdf = createScenarioPdfBlob({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    expect(pdf.type).toBe('application/pdf');
+    expect(pdf.size).toBeGreaterThan(1000);
+    const summary = quoteSummaryText({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    expect(summary).toContain('Cliente Año Ñ');
+    expect(summary).toContain('D0N79ZX');
+  });
+
   it('applies 10 MVS commercial minimum as licensed quantity while keeping declared quantity', () => {
     const inventory = calculateInventory({ standardPhysical: 5, standardVirtual: 0, standardKubernetesWorkers: 0, essentialsPhysical: 2, essentialsVirtual: 1, essentialsKubernetesWorkers: 0 });
     expect(inventory.standardRaw).toBe(5);
     expect(inventory.standardLicensed).toBe(10);
     expect(inventory.essentialsRaw).toBe(3);
     expect(inventory.essentialsLicensed).toBe(10);
+  });
+
+
+
+  it('applies 10 Standard MVS commercial base for explicit serverless-only scope', () => {
+    const scenario = baseScenario();
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOnly = true;
+    scenario.ingest.serverlessOtelGbMonth = 4000;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const quote = buildQuoteLines(scenario, inventory, ingest, calculateLogs(scenario), calculateSynthetic(scenario.synthetic, scenario.syntheticGrowthPercent, false));
+    expect(inventory.standardLicensed).toBe(0);
+    expect(ingest.standardLicensed).toBe(10);
+    expect(ingest.baseIncludedGb).toBe(3250);
+    expect(ingest.agentAverageGb).toBe(0);
+    expect(ingest.projectedServerlessOtelGb).toBe(4800);
+    expect(ingest.gbToLicense).toBe(1550);
+    expect(ingest.dataIngestUnits).toBe(16);
+    expect(quote.some((line) => line.partNumber === 'D0N79ZX' && line.quantity === 10)).toBe(true);
+  });
+
+
+
+  it('does not create licenses for serverless-only when volume is zero', () => {
+    const scenario = baseScenario();
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOnly = true;
+    scenario.ingest.serverlessOtelGbMonth = 0;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const quote = buildQuoteLines(scenario, inventory, ingest, calculateLogs(scenario), calculateSynthetic(scenario.synthetic, scenario.syntheticGrowthPercent, false));
+    expect(ingest.standardLicensed).toBe(0);
+    expect(ingest.baseIncludedGb).toBe(0);
+    expect(quote).toHaveLength(0);
+  });
+
+  it('serverless-only covered by the commercial base does not create Data Ingest', () => {
+    const scenario = baseScenario();
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOnly = true;
+    scenario.ingest.serverlessOtelGbMonth = 2500;
+    scenario.ingest.growthPercent = 0;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const quote = buildQuoteLines(scenario, inventory, ingest, calculateLogs(scenario), calculateSynthetic(scenario.synthetic, scenario.syntheticGrowthPercent, false));
+    expect(ingest.standardLicensed).toBe(10);
+    expect(ingest.baseIncludedGb).toBe(3250);
+    expect(ingest.agentAverageGb).toBe(0);
+    expect(ingest.gbToLicense).toBe(0);
+    expect(ingest.dataIngestUnits).toBe(0);
+    expect(quote.some((line) => line.partNumber === 'D0N7BZX')).toBe(false);
+  });
+
+  it('serverless-only excess rounds Data Ingest blocks up', () => {
+    const scenario = baseScenario();
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOnly = true;
+    scenario.ingest.serverlessOtelGbMonth = 5000;
+    scenario.ingest.growthPercent = 0;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    expect(ingest.standardLicensed).toBe(10);
+    expect(ingest.baseIncludedGb).toBe(3250);
+    expect(ingest.gbToLicense).toBe(1750);
+    expect(ingest.dataIngestUnits).toBe(18);
+  });
+
+  it('applies ingest growth only once', () => {
+    const scenario = baseScenario();
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOnly = true;
+    scenario.ingest.serverlessOtelGbMonth = 3000;
+    scenario.ingest.growthPercent = 20;
+    const ingest = calculateIngest(scenario, calculateInventory(scenario.inventory));
+    expect(ingest.projectedServerlessOtelGb).toBe(3600);
+    expect(ingest.gbToLicense).toBe(350);
+    expect(ingest.dataIngestUnits).toBe(4);
+  });
+
+  it('50 MVS comparison does not change quote without explicit confirmation', () => {
+    const scenario = baseScenario();
+    scenario.inventory.standardPhysical = 5;
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOtelGbMonth = 6000;
+    scenario.ingest.useFiftyMvsScenario = true;
+    scenario.ingest.fiftyMvsConfirmed = false;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const quote = buildQuoteLines(scenario, inventory, ingest, calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(ingest.selectedScenario).toBe('current');
+    expect(quote.find((line) => line.partNumber === 'D0N79ZX')?.quantity).toBe(10);
+  });
+
+  it('50 MVS comparison changes quote after explicit confirmation', () => {
+    const scenario = baseScenario();
+    scenario.inventory.standardPhysical = 5;
+    scenario.addOns.dataIngest = true;
+    scenario.ingest.serverlessOtelGbMonth = 6000;
+    scenario.ingest.useFiftyMvsScenario = true;
+    scenario.ingest.fiftyMvsConfirmed = true;
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const quote = buildQuoteLines(scenario, inventory, ingest, calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(ingest.selectedScenario).toBe('fifty-mvs');
+    expect(quote.find((line) => line.partNumber === 'D0N79ZX')?.quantity).toBe(50);
   });
 
   it('calculates agent consumption from declared MVS and quota from licensed MVS', () => {
@@ -89,6 +245,49 @@ describe('Instana sizing calculations', () => {
     expect(ids).not.toContain('logs');
     expect(ids).not.toContain('synthetic');
     expect(ids).not.toContain('fifty-mvs');
+  });
+
+
+  it('keeps included logs retention out of quote lines', () => {
+    const scenario = baseScenario();
+    scenario.addOns.logs = true;
+    scenario.logs.retentionDays = 7;
+    scenario.logs.tbMonth = 2.2;
+    const inventory = calculateInventory(scenario.inventory);
+    const quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(calculateLogs(scenario).units).toBe(0);
+    expect(quote.some((line) => line.partNumber === 'D0RL4ZX')).toBe(false);
+  });
+
+  it('calculates Synthetic monthly executions correctly', () => {
+    const scenario = baseScenario();
+    scenario.addOns.syntheticManagedPop = true;
+    scenario.synthetic[0] = { ...scenario.synthetic[0], tests: 2, frequencyMinutes: 60, locations: 3 };
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, true);
+    expect(synthetic.rows[0].monthlyExecutions).toBe(4320);
+    expect(synthetic.rows[0].monthlyRu).toBe(108);
+  });
+
+  it('does not create Synthetic quote line with zero tests', () => {
+    const scenario = baseScenario();
+    scenario.addOns.syntheticManagedPop = true;
+    const inventory = calculateInventory(scenario.inventory);
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, true);
+    const quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), synthetic);
+    expect(synthetic.projectedRu).toBe(0);
+    expect(quote.some((line) => line.partNumber === 'D0I5PZX')).toBe(false);
+  });
+
+  it('uses catalog commercial units for quote lines', () => {
+    const scenario = baseScenario();
+    scenario.inventory.standardPhysical = 12;
+    let inventory = calculateInventory(scenario.inventory);
+    let quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(quote.find((line) => line.partNumber === 'D0N79ZX')?.unit).toBe('MVS / mes');
+    scenario.general.mode = 'Self-Hosted';
+    inventory = calculateInventory(scenario.inventory);
+    quote = buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false));
+    expect(quote.find((line) => line.partNumber === 'D29RTLL')?.unit).toBe('Unidad pendiente de validación comercial');
   });
 
   it('calculates logs with independent growth and 1 TB blocks', () => {
@@ -254,11 +453,11 @@ describe('Excel export', () => {
     const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
     const buffer = await workbook.xlsx.writeBuffer();
     expect(buffer.byteLength).toBeGreaterThan(0);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen Ejecutivo', 'Inventario', 'Ingesta', 'Serverless OTel', 'Comparacion 50 MVS', 'Logs', 'Synthetic', 'Resumen de cotizacion', 'Recomendaciones']);
-    const quoteSheet = workbook.getWorksheet('Resumen de cotizacion');
-    expect(quoteSheet?.getColumn(2).values).toContain('D0N7BZX');
-    expect(quoteSheet?.getColumn(2).values).not.toContain('D0RL4ZX');
-    expect(quoteSheet?.getColumn(2).values).not.toContain('D0I5PZX');
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Resumen comercial', 'Part Numbers a cotizar', 'Detalle de MVS', 'Ingesta adicional', 'Supuestos y validaciones']);
+    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
+    expect(quoteSheet?.getColumn(4).values).toContain('D0N7BZX');
+    expect(quoteSheet?.getColumn(4).values).not.toContain('D0RL4ZX');
+    expect(quoteSheet?.getColumn(4).values).not.toContain('D0I5PZX');
   });
 
   it('creates Self-Hosted workbook with technical considerations and only Self-Hosted quote lines', async () => {
@@ -278,10 +477,10 @@ describe('Excel export', () => {
     const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
     const workbook = createScenarioWorkbook({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations: [] });
     expect(quoteLines.map((line) => line.partNumber)).toEqual(['D29RTLL']);
-    expect(workbook.getWorksheet('Consideraciones Self-Hosted')).toBeDefined();
-    const quoteSheet = workbook.getWorksheet('Resumen de cotizacion');
+    expect(workbook.getWorksheet('Supuestos y validaciones')).toBeDefined();
+    const quoteSheet = workbook.getWorksheet('Part Numbers a cotizar');
     expect(quoteSheet?.getColumn(2).values).not.toContain('D0N7BZX');
-    expect(quoteSheet?.getColumn(2).values).not.toContain('D0RL4ZX');
-    expect(quoteSheet?.getColumn(2).values).not.toContain('D0I5PZX');
+    expect(quoteSheet?.getColumn(4).values).not.toContain('D0RL4ZX');
+    expect(quoteSheet?.getColumn(4).values).not.toContain('D0I5PZX');
   });
 });

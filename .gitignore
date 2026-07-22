@@ -1,9 +1,47 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+coverage/
+
+# Test artifacts
+playwright-report/
+test-results/
+.nyc_output/
+
+# Generated exports and captures
+*.xlsx
+*.xls
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.mp4
+*.zip
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+.cache/
+.vite/
+
+# Environment and secrets
 .env
 .env.*
 *.local
-*.log
+*.pem
+*.key
+*.crt
 
 # Internal working notes (not for public repo)
 TRASPASO_CLAUDE.md

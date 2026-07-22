@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs';
+import { INSTANA_RULES } from '../rules/instanaRules';
 import type { IngestResult, InventoryResult, LogsResult, QuoteLine, Recommendation, ScenarioInput, SyntheticResult } from '../types/sizing';
 import { formatNumber } from './calculations';
+import { additionalCapabilities, minimumSummary, recommendationHeadline, safeFileName, selectedEditions, warningMessages } from './reporting';
 
 export interface ExportPayload {
   scenario: ScenarioInput;
@@ -16,14 +18,11 @@ type CellValue = string | number;
 type RowObject = Record<string, CellValue>;
 
 const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF0F62FE' } };
+const titleFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF001D6C' } };
 const border = { style: 'thin' as const, color: { argb: 'FFE0E0E0' } };
 
-function addSheet(workbook: ExcelJS.Workbook, name: string, rows: RowObject[]) {
-  const worksheet = workbook.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] });
-  const headers = Object.keys(rows[0] || { Columna: '' });
-  worksheet.columns = headers.map((header) => ({ header, key: header, width: Math.max(header.length + 4, ...rows.map((row) => String(row[header] ?? '').length + 2), 14) }));
-  rows.forEach((row) => worksheet.addRow(row));
-  worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, worksheet.rowCount), column: headers.length } };
+function styleSheet(worksheet: ExcelJS.Worksheet, freeze = true) {
+  if (freeze) worksheet.views = [{ state: 'frozen', ySplit: 1 }];
   worksheet.getRow(1).eachCell((cell) => {
     cell.fill = headerFill;
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -39,121 +38,157 @@ function addSheet(workbook: ExcelJS.Workbook, name: string, rows: RowObject[]) {
   });
 }
 
+function addTableSheet(workbook: ExcelJS.Workbook, name: string, rows: RowObject[], widths?: number[]) {
+  if (!rows.length) return undefined;
+  const worksheet = workbook.addWorksheet(name);
+  const headers = Object.keys(rows[0]);
+  worksheet.columns = headers.map((header, index) => ({ header, key: header, width: widths?.[index] || Math.max(16, Math.min(42, header.length + 8)) }));
+  rows.forEach((row) => worksheet.addRow(row));
+  worksheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: worksheet.rowCount, column: headers.length } };
+  styleSheet(worksheet);
+  return worksheet;
+}
+
+function addSummarySheet(workbook: ExcelJS.Workbook, payload: ExportPayload) {
+  const { scenario, inventory, ingest, quoteLines, recommendations } = payload;
+  const worksheet = workbook.addWorksheet('Resumen comercial');
+  worksheet.columns = [{ width: 34 }, { width: 92 }];
+  const rows: Array<[string, string | number]> = [
+    ['IBM Instana Observability', 'Estimación de licenciamiento'],
+    ['Cliente u oportunidad', scenario.general.client || 'Sin cliente'],
+    ['Modalidad', scenario.general.mode],
+    ['Fecha', new Date().toLocaleString('es-ES')],
+    ['Recomendación principal', recommendationHeadline(payload)],
+    ['Ediciones seleccionadas', selectedEditions(payload)],
+    ['MVS declarados', `Standard ${formatNumber(inventory.standardRaw)} / Essentials ${formatNumber(inventory.essentialsRaw)}`],
+    ['MVS licenciados', `Standard ${formatNumber(ingest.standardLicensed)} / Essentials ${formatNumber(inventory.essentialsLicensed)}`],
+    ['Mínimos aplicados', minimumSummary(payload)],
+    ['Capacidades adicionales', additionalCapabilities(payload)],
+    ['Part Numbers', quoteLines.length ? quoteLines.map((line) => `${line.partNumber} (${formatNumber(line.quantity)} ${line.unit})`).join('\n') : 'Sin componentes con cantidad mayor a cero'],
+    ['Advertencias', warningMessages(payload).join('\n')],
+    ['Nota de validación CPQ', 'Validar Part Numbers, cantidades, condiciones y vigencia comercial contra CPQ antes de emitir la cotización.'],
+    ['Reglas pendientes de validación', INSTANA_RULES.catalog.filter((item) => item.validationStatus.includes('Pendiente')).map((item) => `${item.id}: ${item.validationStatus}`).join('\n')],
+    ['Recomendaciones detectadas', recommendations.length ? recommendations.map((item) => `${item.title} ${item.detail}`).join('\n') : 'Información completa. Sin recomendaciones adicionales detectadas.'],
+  ];
+  worksheet.addRow(['Campo', 'Valor']);
+  rows.forEach((row) => worksheet.addRow(row));
+  worksheet.getRow(1).eachCell((cell) => {
+    cell.fill = titleFill;
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  });
+  styleSheet(worksheet, false);
+}
+
+function quoteRows(payload: ExportPayload): RowObject[] {
+  return payload.quoteLines.filter((line) => line.quantity > 0).map((line) => {
+    const catalogEntry = INSTANA_RULES.catalog.find((item) => item.partNumber === line.partNumber);
+    const edition = line.component.includes('Standard') ? 'Standard' : line.component.includes('Essentials') ? 'Essentials' : '';
+    return {
+      Componente: line.component,
+      Modalidad: payload.scenario.general.mode,
+      Edición: edition,
+      'Part Number': line.partNumber,
+      Descripción: catalogEntry?.description || line.component,
+      Cantidad: line.quantity,
+      'Unidad comercial': line.unit,
+      'Regla aplicada': catalogEntry?.minimum || catalogEntry?.blockSize || 'Cantidad calculada según regla aplicable',
+      Explicación: line.explanation,
+    };
+  });
+}
+
+function mvsRows(payload: ExportPayload): RowObject[] {
+  const rows: RowObject[] = [];
+  const { scenario, inventory, ingest } = payload;
+  if (inventory.standardRaw > 0 || ingest.standardLicensed > 0) rows.push({
+    Edición: 'Standard',
+    'Servidores físicos': scenario.inventory.standardPhysical,
+    'Servidores virtuales': scenario.inventory.standardVirtual,
+    'Worker nodes': scenario.inventory.standardKubernetesWorkers,
+    'MVS declarados': inventory.standardRaw,
+    'Mínimo aplicado': inventory.standardMinimumApplied || (scenario.ingest.serverlessOnly && inventory.standardRaw === 0 && ingest.standardLicensed === INSTANA_RULES.commercialMinimumMvs) ? 'Sí' : 'No',
+    'MVS a licenciar': ingest.standardLicensed,
+    Explicación: scenario.ingest.serverlessOnly && inventory.standardRaw === 0 && ingest.standardLicensed > 0 ? 'Base comercial mínima de 10 MVS Standard para alcance solo serverless/OpenTelemetry.' : 'Suma de servidores físicos, virtuales y worker nodes Standard.',
+  });
+  if (inventory.essentialsRaw > 0 || inventory.essentialsLicensed > 0) rows.push({
+    Edición: 'Essentials',
+    'Servidores físicos': scenario.inventory.essentialsPhysical,
+    'Servidores virtuales': scenario.inventory.essentialsVirtual,
+    'Worker nodes': scenario.inventory.essentialsKubernetesWorkers,
+    'MVS declarados': inventory.essentialsRaw,
+    'Mínimo aplicado': inventory.essentialsMinimumApplied ? 'Sí' : 'No',
+    'MVS a licenciar': inventory.essentialsLicensed,
+    Explicación: 'Suma de servidores físicos, virtuales y worker nodes Essentials.',
+  });
+  return rows;
+}
+
+function ingestRows(payload: ExportPayload): RowObject[] {
+  const { scenario, ingest } = payload;
+  if (scenario.general.mode !== 'SaaS' || !scenario.addOns.dataIngest || ingest.projectedServerlessOtelGb <= 0) return [];
+  return [
+    { Campo: 'Tipo de escenario', Valor: scenario.ingest.serverlessOnly ? 'Solo serverless/OpenTelemetry' : 'Agentes + serverless/OpenTelemetry', Unidad: '' },
+    { Campo: 'MVS base', Valor: `Standard ${formatNumber(ingest.standardLicensed)} / Essentials ${formatNumber(ingest.essentialsLicensed)}`, Unidad: 'MVS' },
+    { Campo: 'Cuota incluida', Valor: ingest.baseIncludedGb, Unidad: 'GB/mes' },
+    { Campo: 'Porcentaje usado por agentes', Valor: scenario.ingest.agentConsumptionPercent, Unidad: '%' },
+    { Campo: 'Cuota disponible', Valor: ingest.remainingGb, Unidad: 'GB/mes' },
+    { Campo: 'Volumen ingresado', Valor: scenario.ingest.useTransactionalMode ? ingest.transactionalWorkloads.reduce((sum, row) => sum + row.gbMonth, 0) : scenario.ingest.serverlessOtelGbMonth, Unidad: 'GB/mes' },
+    { Campo: 'Crecimiento', Valor: scenario.ingest.growthPercent, Unidad: '%' },
+    { Campo: 'Volumen proyectado', Valor: ingest.projectedServerlessOtelGb, Unidad: 'GB/mes' },
+    { Campo: 'Exceso', Valor: ingest.gbToLicense, Unidad: 'GB/mes' },
+    { Campo: 'Tamaño de bloque', Valor: INSTANA_RULES.dataIngest.unitGb, Unidad: 'GB/mes' },
+    { Campo: 'Unidades', Valor: ingest.dataIngestUnits, Unidad: INSTANA_RULES.dataIngest.unitLabel },
+    { Campo: 'Part Number', Valor: ingest.dataIngestUnits > 0 ? INSTANA_RULES.dataIngest.partNumber : 'No aplica', Unidad: '' },
+  ];
+}
+
+function logsSyntheticRows(payload: ExportPayload): RowObject[] {
+  const rows: RowObject[] = [];
+  const { scenario, logs, synthetic } = payload;
+  if (scenario.addOns.logs) {
+    rows.push({ Capacidad: 'Logs in Context', Métrica: 'Retención', Valor: logs.retentionLabel, Unidad: '' });
+    rows.push({ Capacidad: 'Logs in Context', Métrica: 'Volumen considerado', Valor: logs.projectedTbMonth, Unidad: 'TB mensual' });
+    rows.push({ Capacidad: 'Logs in Context', Métrica: 'Unidades', Valor: logs.units, Unidad: INSTANA_RULES.logs.unitLabel });
+    if (logs.units > 0) rows.push({ Capacidad: 'Logs in Context', Métrica: 'Part Number', Valor: logs.retentionPartNumber, Unidad: '' });
+  }
+  if (scenario.addOns.syntheticManagedPop && synthetic.projectedRu > 0) {
+    synthetic.rows.forEach((row) => rows.push({ Capacidad: 'Synthetic', Métrica: row.label, Valor: `${formatNumber(row.tests)} pruebas / ${formatNumber(row.monthlyExecutions)} ejecuciones / ${formatNumber(row.projectedRu, 1)} RU`, Unidad: 'mensual' }));
+    rows.push({ Capacidad: 'Synthetic', Métrica: 'Total RU proyectadas', Valor: synthetic.projectedRu, Unidad: 'RU/mes' });
+    rows.push({ Capacidad: 'Synthetic', Métrica: 'Unidades a cotizar', Valor: synthetic.consideredUnits, Unidad: INSTANA_RULES.synthetic.unitLabel });
+    rows.push({ Capacidad: 'Synthetic', Métrica: 'RU disponibles luego del redondeo', Valor: synthetic.availableRu, Unidad: 'RU/mes' });
+    rows.push({ Capacidad: 'Synthetic', Métrica: 'Part Number', Valor: INSTANA_RULES.synthetic.managedPopPartNumber, Unidad: '' });
+  }
+  return rows;
+}
+
+function assumptionsRows(payload: ExportPayload): RowObject[] {
+  return [
+    { Categoría: 'Regla comercial vigente', Detalle: `Mínimo comercial: ${INSTANA_RULES.commercialMinimumMvs} MVS cuando aplica.` },
+    { Categoría: 'Fecha del catálogo', Detalle: INSTANA_RULES.catalogDate },
+    { Categoría: 'Cuotas SaaS', Detalle: `Standard ${INSTANA_RULES.saasQuotaGb.standard} GB/MVS/mes; Essentials ${INSTANA_RULES.saasQuotaGb.essentials} GB/MVS/mes.` },
+    { Categoría: 'Redondeos', Detalle: `Data Ingest redondea por ${INSTANA_RULES.dataIngest.unitLabel}; Logs redondea por ${INSTANA_RULES.logs.unitLabel}; Synthetic redondea por ${INSTANA_RULES.synthetic.unitLabel}.` },
+    { Categoría: 'Synthetic', Detalle: `Mínimo: ${INSTANA_RULES.synthetic.minimumUnits} unidades. Minutos por mes: ${INSTANA_RULES.monthlyMinutes}.` },
+    { Categoría: 'Fuente configurada', Detalle: INSTANA_RULES.catalogSource },
+    { Categoría: 'Validación CPQ', Detalle: 'Validar Part Numbers, cantidades, unidad comercial, condiciones y vigencia contra CPQ antes de emitir la cotización.' },
+    ...warningMessages(payload).map((warning) => ({ Categoría: 'Advertencia', Detalle: warning })),
+  ];
+}
+
 export function createScenarioWorkbook(payload: ExportPayload) {
-  const { scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations } = payload;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Instana Sizing Advisor';
   workbook.created = new Date();
-
-  addSheet(workbook, 'Resumen Ejecutivo', [
-    { Campo: 'Cliente', Valor: scenario.general.client || 'Sin cliente' },
-    { Campo: 'Modalidad', Valor: scenario.general.mode },
-    { Campo: 'Ambiente', Valor: scenario.general.environment },
-    { Campo: 'Region / ubicacion', Valor: scenario.general.region },
-    { Campo: 'Fecha de generacion', Valor: new Date().toLocaleString('es-ES') },
-    { Campo: 'Add-on Data Ingest', Valor: scenario.general.mode === 'SaaS' ? (scenario.addOns.dataIngest ? 'Activado' : 'Desactivado') : 'No aplica Self-Hosted' },
-    { Campo: 'Add-on Logs', Valor: scenario.general.mode === 'SaaS' ? (scenario.addOns.logs ? 'Activado' : 'Desactivado') : 'No aplica Self-Hosted' },
-    { Campo: 'Add-on Synthetic Managed PoP', Valor: scenario.general.mode === 'SaaS' ? (scenario.addOns.syntheticManagedPop ? 'Activado' : 'Desactivado') : 'No aplica Self-Hosted' },
-    { Campo: 'Observaciones', Valor: scenario.general.notes },
-  ]);
-
-  addSheet(workbook, 'Inventario', [
-    { Metrica: 'Standard declarado', Cantidad: inventory.standardRaw, Unidad: 'MVS' },
-    { Metrica: 'Standard licenciado', Cantidad: ingest.standardLicensed, Unidad: 'MVS' },
-    { Metrica: 'Essentials declarado', Cantidad: inventory.essentialsRaw, Unidad: 'MVS' },
-    { Metrica: 'Essentials licenciado', Cantidad: inventory.essentialsLicensed, Unidad: 'MVS' },
-    { Metrica: 'Fisicas Standard con sistema operativo', Cantidad: scenario.inventory.standardPhysical, Unidad: 'MVS' },
-    { Metrica: 'VMs Standard con sistema operativo', Cantidad: scenario.inventory.standardVirtual, Unidad: 'MVS' },
-    { Metrica: 'Kubernetes worker nodes Standard', Cantidad: scenario.inventory.standardKubernetesWorkers, Unidad: 'MVS' },
-    { Metrica: 'Fisicas Essentials con sistema operativo', Cantidad: scenario.inventory.essentialsPhysical, Unidad: 'MVS' },
-    { Metrica: 'VMs Essentials con sistema operativo', Cantidad: scenario.inventory.essentialsVirtual, Unidad: 'MVS' },
-    { Metrica: 'Kubernetes worker nodes Essentials', Cantidad: scenario.inventory.essentialsKubernetesWorkers, Unidad: 'MVS' },
-  ]);
-
-  addSheet(workbook, 'Ingesta', [
-    { Metrica: 'Modo serverless/OTel', Valor: scenario.ingest.useTransactionalMode ? 'Transaccional' : 'Rapido' },
-    { Metrica: 'Crecimiento proyectado', Valor: scenario.ingest.growthPercent, Unidad: '%' },
-    { Metrica: 'Cuota base incluida', Valor: ingest.baseIncludedGb, Unidad: 'GB/mes' },
-    { Metrica: 'Consumo promedio agentes reales', Valor: ingest.agentAverageGb, Unidad: 'GB/mes' },
-    { Metrica: 'Remanente disponible', Valor: ingest.remainingGb, Unidad: 'GB/mes' },
-    { Metrica: 'Serverless / OTel proyectado', Valor: ingest.projectedServerlessOtelGb, Unidad: 'GB/mes' },
-    { Metrica: 'Ingesta a licenciar', Valor: ingest.gbToLicense, Unidad: 'GB/mes' },
-    { Metrica: 'Unidades Data Ingest', Valor: ingest.dataIngestUnits, Unidad: 'bloques de 100 GB/mes' },
-  ]);
-
-  addSheet(workbook, 'Serverless OTel', scenario.ingest.useTransactionalMode && ingest.transactionalWorkloads.length ? ingest.transactionalWorkloads.map((row) => ({
-    Workload: row.name,
-    Tipo: row.type,
-    'TPS promedio': row.averageTps,
-    'Spans por transaccion': row.spansPerTransaction,
-    'Peso span KB': row.averageSpanKb,
-    'GB/mes calculado': row.gbMonth,
-    'GB/mes proyectado': row.projectedGbMonth,
-  })) : [{ Workload: 'Modo rapido', Tipo: 'Manual', 'TPS promedio': '', 'Spans por transaccion': '', 'Peso span KB': '', 'GB/mes calculado': scenario.ingest.serverlessOtelGbMonth, 'GB/mes proyectado': ingest.manualProjectedServerlessOtelGb }]);
-
-  addSheet(workbook, 'Comparacion 50 MVS', ingest.fiftyMvsScenario ? [ingest.currentScenario, ingest.fiftyMvsScenario].map((item) => ({
-    Escenario: item.label,
-    'MVS licenciados': item.standardLicensed,
-    'Cuota base incluida': item.baseIncludedGb,
-    'Consumo agentes reales': item.agentAverageGb,
-    'Remanente disponible': item.remainingGb,
-    'Serverless/OTel proyectado': item.projectedServerlessOtelGb,
-    'Ingesta a licenciar': item.gbToLicense,
-    'Unidades Data Ingest': item.dataIngestUnits,
-  })) : [{ Escenario: 'No aplica', 'MVS licenciados': '', 'Cuota base incluida': '', 'Consumo agentes reales': '', 'Remanente disponible': '', 'Serverless/OTel proyectado': '', 'Ingesta a licenciar': '', 'Unidades Data Ingest': '' }]);
-
-  addSheet(workbook, 'Logs', [
-    { Metrica: 'Add-on activado', Valor: scenario.addOns.logs ? 'Si' : 'No' },
-    { Metrica: 'Retencion', Valor: logs.retentionLabel },
-    { Metrica: 'Volumen logs actual', Valor: scenario.logs.tbMonth, Unidad: 'TB mensual' },
-    { Metrica: 'Sugerencia de crecimiento Logs', Valor: scenario.logs.growthPercent, Unidad: '%' },
-    { Metrica: scenario.logs.growthPercent > 0 ? 'Logs proyectados' : 'Volumen considerado', Valor: logs.projectedTbMonth, Unidad: 'TB mensual' },
-    { Metrica: 'Unidades logs', Valor: logs.units, Unidad: 'bloques de 1 TB mensual' },
-  ]);
-
-  addSheet(workbook, 'Synthetic', [
-    ...synthetic.rows.map((row) => ({
-      'Tipo de prueba': row.label,
-      'Cantidad de tests': row.tests,
-      'Frecuencia en minutos': row.frequencyMinutes,
-      Ubicaciones: row.locations,
-      'RU por ejecucion': row.ruPerExecution,
-      'Ejecuciones mensuales': row.monthlyExecutions,
-      'Subtotal RU mensual': row.monthlyRu,
-      'RU proyectadas': row.projectedRu,
-    })),
-    { 'Tipo de prueba': `Total RU calculadas (crecimiento Synthetic ${scenario.syntheticGrowthPercent}%)`, 'Cantidad de tests': '', 'Frecuencia en minutos': '', Ubicaciones: '', 'RU por ejecucion': '', 'Ejecuciones mensuales': '', 'Subtotal RU mensual': synthetic.totalRu, 'RU proyectadas': synthetic.projectedRu },
-    { 'Tipo de prueba': 'Unidades calculadas', 'Cantidad de tests': '', 'Frecuencia en minutos': '', Ubicaciones: '', 'RU por ejecucion': '', 'Ejecuciones mensuales': '', 'Subtotal RU mensual': '', 'RU proyectadas': synthetic.calculatedUnits },
-    { 'Tipo de prueba': 'Unidades licenciadas', 'Cantidad de tests': '', 'Frecuencia en minutos': '', Ubicaciones: '', 'RU por ejecucion': '', 'Ejecuciones mensuales': '', 'Subtotal RU mensual': '', 'RU proyectadas': synthetic.consideredUnits },
-    { 'Tipo de prueba': 'RU licenciadas', 'Cantidad de tests': '', 'Frecuencia en minutos': '', Ubicaciones: '', 'RU por ejecucion': '', 'Ejecuciones mensuales': '', 'Subtotal RU mensual': '', 'RU proyectadas': synthetic.licensedRu },
-    { 'Tipo de prueba': 'RU disponibles', 'Cantidad de tests': '', 'Frecuencia en minutos': '', Ubicaciones: '', 'RU por ejecucion': '', 'Ejecuciones mensuales': '', 'Subtotal RU mensual': '', 'RU proyectadas': synthetic.availableRu },
-  ]);
-
-
-
-  if (scenario.general.mode === 'Self-Hosted') {
-    addSheet(workbook, 'Consideraciones Self-Hosted', [
-      { Consideracion: 'General', Detalle: 'En despliegues Self-Hosted, los add-ons SaaS de Data Ingest, Logs in Context y Synthetic Managed PoP no se incluyen como componentes de cotización. Estos volúmenes deben considerarse dentro del dimensionamiento técnico de la plataforma Instana, incluyendo backend, storage, retención, capacidad de ingesta y PoP privado si aplica.' },
-      { Consideracion: 'Ingesta serverless/OpenTelemetry', Detalle: ingest.projectedServerlessOtelGb > 0 ? 'La ingesta declarada debe considerarse como referencia para estimar capacidad de backend, procesamiento y almacenamiento.' : 'Sin ingesta declarada.' },
-      { Consideracion: 'Logs', Detalle: scenario.logs.tbMonth > 0 ? 'El volumen de logs debe considerarse para estimar storage, retención e impacto en la plataforma Self-Hosted.' : 'Sin volumen de logs declarado.' },
-      { Consideracion: 'Synthetic', Detalle: synthetic.projectedRu > 0 ? 'Las pruebas Synthetic desde PoP privado deben considerarse en el dimensionamiento del PoP y su infraestructura asociada.' : 'Sin pruebas Synthetic declaradas.' },
-    ]);
-  }
-
-  addSheet(workbook, 'Resumen de cotizacion', quoteLines.length ? quoteLines.map((line) => ({
-    Componente: line.component,
-    'Part number': line.partNumber,
-    Cantidad: line.quantity,
-    Unidad: line.unit,
-    Explicacion: line.explanation,
-  })) : [{ Componente: 'Sin componentes con cantidad mayor a cero', 'Part number': '', Cantidad: '', Unidad: '', Explicacion: '' }]);
-
-  addSheet(workbook, 'Recomendaciones', recommendations.length ? recommendations.map((item) => ({
-    Recomendacion: item.title,
-    Detalle: item.detail,
-    Severidad: item.severity,
-  })) : [{ Recomendacion: 'Sin recomendaciones detectadas', Detalle: '', Severidad: '' }]);
-
+  addSummarySheet(workbook, payload);
+  addTableSheet(workbook, 'Part Numbers a cotizar', quoteRows(payload), [28, 16, 14, 16, 34, 12, 26, 34, 56]);
+  addTableSheet(workbook, 'Detalle de MVS', mvsRows(payload), [18, 18, 18, 16, 16, 18, 16, 60]);
+  addTableSheet(workbook, 'Ingesta adicional', ingestRows(payload), [30, 32, 18]);
+  addTableSheet(workbook, 'Logs y Synthetic', logsSyntheticRows(payload), [22, 30, 34, 20]);
+  addTableSheet(workbook, 'Supuestos y validaciones', assumptionsRows(payload), [28, 92]);
+  workbook.worksheets.forEach((sheet) => {
+    sheet.eachRow((row) => row.eachCell((cell) => {
+      if (typeof cell.value === 'number') cell.numFmt = '#,##0.0';
+    }));
+  });
   return workbook;
 }
 
@@ -170,6 +205,5 @@ async function downloadWorkbook(workbook: ExcelJS.Workbook, fileName: string) {
 
 export async function exportScenarioToExcel(payload: ExportPayload) {
   const workbook = createScenarioWorkbook(payload);
-  const safeClient = (payload.scenario.general.client || 'escenario').replace(/\s+/g, '-').toLowerCase();
-  await downloadWorkbook(workbook, `instana-sizing-advisor-${safeClient}.xlsx`);
+  await downloadWorkbook(workbook, `instana-sizing-advisor-${safeFileName(payload.scenario.general.client)}.xlsx`);
 }
