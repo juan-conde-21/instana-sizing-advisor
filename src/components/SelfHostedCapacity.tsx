@@ -1,12 +1,30 @@
-import { SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES, SELF_HOSTED_SIZING_WARNINGS } from '../rules/selfHostedCapacity';
+import { LOGS_CAPACITY_IMPACT, SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES, SELF_HOSTED_SIZING_WARNINGS, SYNTHETIC_CAPACITY_IMPACT } from '../rules/selfHostedCapacity';
 import type { ScenarioInput } from '../types/sizing';
 
 interface Props {
   scenario: ScenarioInput;
 }
 
+function scenarioLabel(scenario: ScenarioInput['selfHostedSizing']['scenario']): string {
+  if (scenario === 'base') return 'Production base';
+  if (scenario === 'large') return 'Production large';
+  return 'Custom';
+}
+
 export function SelfHostedCapacity({ scenario }: Props) {
-  const hasSynthetic = scenario.synthetic.some((r) => r.tests > 0);
+  const { selfHostedSizing, synthetic, inventory } = scenario;
+  const logsApplied = selfHostedSizing.logsTbMonth > 0;
+  const syntheticApplied = synthetic.some((r) => r.tests > 0);
+  const hasKubernetes = inventory.standardKubernetesWorkers + inventory.essentialsKubernetesWorkers > 0;
+  const hasHA = selfHostedSizing.highAvailability === 'Sí';
+  const hasIncrements = logsApplied || syntheticApplied;
+
+  const addCpu = (logsApplied ? LOGS_CAPACITY_IMPACT.cpuVcpu : 0) + (syntheticApplied ? SYNTHETIC_CAPACITY_IMPACT.cpuVcpu : 0);
+  const addRamGb = (logsApplied ? LOGS_CAPACITY_IMPACT.ramGb : 0) + (syntheticApplied ? SYNTHETIC_CAPACITY_IMPACT.ramGb : 0);
+  const addStorageTb = logsApplied ? LOGS_CAPACITY_IMPACT.storageTb : 0;
+  const totalCpu = selfHostedSizing.cpu + addCpu;
+  const totalRamGb = selfHostedSizing.ramGb + addRamGb;
+  const totalStorageTb = selfHostedSizing.storageTb + addStorageTb;
 
   return (
     <section className="section-card" id="capacidad-self-hosted" data-testid="self-hosted-capacity-section">
@@ -18,7 +36,77 @@ export function SelfHostedCapacity({ scenario }: Props) {
         </div>
       </div>
 
-      <div className="notice warning-note compact-notice" data-testid="self-hosted-capacity-warning">
+      <div className="referential-capacity-block section-gap" data-testid="self-hosted-capacity-referential">
+        <h3>Capacidad referencial a validar</h3>
+        <div className="inventory-total-row">
+          <div>
+            <span>Escenario</span>
+            <strong>{scenarioLabel(selfHostedSizing.scenario)}</strong>
+          </div>
+          <div>
+            <span>CPU base</span>
+            <strong>{selfHostedSizing.cpu} vCPU</strong>
+          </div>
+          <div>
+            <span>Memoria base</span>
+            <strong>{selfHostedSizing.ramGb} GB RAM</strong>
+          </div>
+          <div>
+            <span>Storage base</span>
+            <strong>{selfHostedSizing.storageTb} TB</strong>
+          </div>
+        </div>
+
+        {hasIncrements && (
+          <div className="capacity-impacts section-gap">
+            {logsApplied && (
+              <div className="capacity-impact-item" data-testid="self-hosted-logs-impact">
+                <span className="capacity-impact-label">+ Logs / Analyze Logs:</span>
+                <span>+{LOGS_CAPACITY_IMPACT.cpuVcpu} vCPU / +{LOGS_CAPACITY_IMPACT.ramGb} GB RAM / +{LOGS_CAPACITY_IMPACT.storageTb} TB storage</span>
+              </div>
+            )}
+            {syntheticApplied && (
+              <div className="capacity-impact-item" data-testid="self-hosted-synthetic-impact">
+                <span className="capacity-impact-label">+ Synthetic Monitoring Self-Hosted:</span>
+                <span>+{SYNTHETIC_CAPACITY_IMPACT.cpuVcpu} vCPU / +{SYNTHETIC_CAPACITY_IMPACT.ramGb} GB RAM</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasIncrements && (
+          <div className="inventory-total-row capacity-total-row section-gap" data-testid="self-hosted-capacity-total">
+            <div>
+              <span>CPU total referencial</span>
+              <strong>{totalCpu} vCPU</strong>
+            </div>
+            <div>
+              <span>Memoria total referencial</span>
+              <strong>{totalRamGb} GB RAM</strong>
+            </div>
+            <div>
+              <span>Storage total referencial</span>
+              <strong>{totalStorageTb.toFixed(3)} TB</strong>
+            </div>
+          </div>
+        )}
+
+        {hasHA && (
+          <div className="notice warning-note compact-notice section-gap" data-testid="self-hosted-ha-warning">
+            Alta disponibilidad requiere validación de arquitectura multinodo o diseño específico con IBM preventa.
+          </div>
+        )}
+
+        {hasKubernetes && (
+          <div className="notice warning-note compact-notice section-gap" data-testid="self-hosted-k8s-warning">
+            Kubernetes puede incrementar significativamente la carga por pods, contenedores, namespaces y cardinalidad. Validar con IBM preventa.
+          </div>
+        )}
+
+        <p className="note section-gap">Valores referenciales. El sizing final debe validarse con IBM preventa, considerando el inventario real, volumen de trazas, logs, retención y arquitectura.</p>
+      </div>
+
+      <div className="notice warning-note compact-notice section-gap" data-testid="self-hosted-capacity-warning">
         Esta plantilla es referencial. El dimensionamiento final debe validarse de acuerdo con el volumen real de monitoreo, tecnologías observadas, cantidad de contenedores/pods, trazas, logs, retención y patrones de tráfico. Para escenarios multinodo, Custom Edition o ambientes de alta criticidad, consultar con el equipo IBM de preventa.
       </div>
 
@@ -31,21 +119,20 @@ export function SelfHostedCapacity({ scenario }: Props) {
               <div><span>Memoria</span><strong>{profile.ramGb} GB RAM</strong></div>
               <div><span>Storage</span><strong>{profile.storageTb} TB</strong></div>
               <div><span>IOPS mín.</span><strong>{profile.iops.toLocaleString('es-ES')}</strong></div>
-              <div><span>Throughput mín.</span><strong>{profile.throughputMibS} MiB/s</strong></div>
             </div>
             <p className="note">{profile.note}</p>
           </article>
         ))}
       </div>
 
-      <h3 className="section-subheading">Impacto de capacidad por componente opcional</h3>
+      <h3 className="section-subheading">Impacto de capacidad por componente</h3>
       <div className="table-wrap">
         <table data-testid="self-hosted-capacity-impact-table">
           <thead>
             <tr>
               <th>Componente</th>
-              <th>Impacto esperado</th>
-              <th>Capacidad referencial adicional</th>
+              <th>Impacto técnico</th>
+              <th>Capacidad adicional referencial</th>
               <th>Nota</th>
             </tr>
           </thead>
@@ -71,22 +158,27 @@ export function SelfHostedCapacity({ scenario }: Props) {
         </ul>
       </div>
 
+      <h3 className="section-subheading">Single-node vs escenarios avanzados</h3>
       <div className="comparison-grid section-gap">
         <article>
           <h4>Single-node production base</h4>
-          <p>Uso: referencia inicial para ambientes productivos base.</p>
-          <p>Ventaja: despliegue más simple.</p>
-          <p>Advertencia: requiere validar límites de carga y crecimiento.</p>
+          <p>Referencia inicial para ambientes productivos base.</p>
+          <p>Requiere validar límites de carga y crecimiento.</p>
+        </article>
+        <article>
+          <h4>Production large</h4>
+          <p>Referencia para mayor carga o crecimiento sostenido.</p>
+          <p>No reemplaza sizing final.</p>
         </article>
         <article>
           <h4>Multinode / Custom Edition</h4>
-          <p>Uso: ambientes de mayor criticidad, mayor carga, alta disponibilidad, crecimiento sostenido o requerimientos específicos de plataforma.</p>
+          <p>Para alta disponibilidad, mayor criticidad, crecimiento sostenido o arquitectura específica.</p>
           <p><strong>Acción:</strong> Consultar con IBM preventa para validación de arquitectura y sizing.</p>
         </article>
       </div>
 
-      {hasSynthetic && (
-        <p className="note" data-testid="self-hosted-pop-note">
+      {syntheticApplied && (
+        <p className="note section-gap" data-testid="self-hosted-pop-note">
           Para Synthetic con PoP privado, dimensionar la infraestructura del PoP de forma separada. Como referencia mínima de prueba se puede considerar 4 vCPU, 16 GB RAM y k3s; para producción se debe usar sizing específico según cantidad de pruebas, frecuencia, ubicaciones y tipo de test.
         </p>
       )}

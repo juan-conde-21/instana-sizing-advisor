@@ -294,20 +294,55 @@ function addCatalogSheet(workbook: ExcelJS.Workbook, payload: ExportPayload) {
   worksheet.views = [{ state: 'frozen', ySplit: 4 }];
 }
 
-function addSelfHostedCapacitySheet(workbook: ExcelJS.Workbook, _payload: ExportPayload) {
+function selfHostedCapacityRows(payload: ExportPayload): RowValues[] {
+  const sh = payload.scenario.selfHostedSizing;
+  const logsApplied = sh.logsTbMonth > 0;
+  const syntheticApplied = payload.synthetic.rows.some((r) => r.tests > 0) || payload.scenario.synthetic.some((r) => r.tests > 0);
+  const scenarioLabel = sh.scenario === 'base' ? 'Production base' : sh.scenario === 'large' ? 'Production large' : 'Custom';
+  const addCpu = (logsApplied ? SELF_HOSTED_CAPACITY_IMPACTS[0] ? 4 : 0 : 0) + (syntheticApplied ? 2 : 0);
+  const addRamGb = (logsApplied ? 12 : 0) + (syntheticApplied ? 9 : 0);
+  const addStorageTb = logsApplied ? 3.688 : 0;
+  const rows: RowValues[] = [
+    ['Escenario seleccionado', scenarioLabel],
+    ['CPU base (vCPU)', sh.cpu],
+    ['Memoria base (GB RAM)', sh.ramGb],
+    ['Storage base (TB)', sh.storageTb],
+    ['IOPS mínimo', sh.iops],
+    ['Throughput mínimo (MiB/s)', sh.throughputMibS],
+    ['Volumen referencial de trazas', sh.traceVolume || null],
+    ['Unidad de trazas', sh.traceVolume > 0 ? sh.traceVolumeUnit : null],
+    ['Volumen de logs (TB mensual)', sh.logsTbMonth || null],
+    ['Retención requerida', sh.retention],
+    ['Alta disponibilidad', sh.highAvailability],
+    ['Cantidad de ambientes', sh.environments],
+    ['Crecimiento esperado (%)', sh.growthPercent],
+  ];
+  if (logsApplied) rows.push(['Impacto Logs (adicional)', '+4 vCPU / +12 GB RAM / +3.688 TB storage']);
+  if (syntheticApplied) rows.push(['Impacto Synthetic (adicional)', '+2 vCPU / +9 GB RAM']);
+  if (logsApplied || syntheticApplied) {
+    rows.push(['CPU total referencial (vCPU)', sh.cpu + addCpu]);
+    rows.push(['Memoria total referencial (GB RAM)', sh.ramGb + addRamGb]);
+    rows.push(['Storage total referencial (TB)', parseFloat((sh.storageTb + addStorageTb).toFixed(3))]);
+  }
+  if (sh.highAvailability === 'Sí') rows.push(['Advertencia HA', 'Alta disponibilidad requiere validación de arquitectura multinodo o diseño específico con IBM preventa.']);
+  if (sh.notes) rows.push(['Observaciones técnicas', sh.notes]);
+  return rows;
+}
+
+function addSelfHostedCapacitySheet(workbook: ExcelJS.Workbook, payload: ExportPayload) {
   const worksheet = workbook.addWorksheet('Capacidad Self-Hosted');
   setupPage(worksheet, true);
-  addTitle(worksheet, 'Capacidad Self-Hosted', 'Plantilla referencial de dimensionamiento técnico');
+  addTitle(worksheet, 'Capacidad Self-Hosted', 'Configuración y plantilla referencial de dimensionamiento técnico');
 
   let row = 4;
-  addSection(worksheet, row, 'Nota de uso');
+  addSection(worksheet, row, 'Escenario y capacidad configurada');
   row += 1;
-  worksheet.mergeCells(row, 1, row + 1, 6);
-  const notice = worksheet.getCell(row, 1);
-  notice.value = 'Esta plantilla es referencial. El dimensionamiento final debe validarse de acuerdo con el volumen real de monitoreo, tecnologías observadas, cantidad de contenedores/pods, trazas, logs, retención y patrones de tráfico. Para escenarios multinodo, Custom Edition o ambientes de alta criticidad, consultar con el equipo IBM de preventa.';
-  notice.alignment = { wrapText: true, vertical: 'top' };
-  styleRange(worksheet, row, row + 1, 1, 6);
-  row += 3;
+  row = addTable(
+    worksheet, row,
+    ['Parámetro', 'Valor'],
+    selfHostedCapacityRows(payload),
+    [42, 60],
+  ) + 1;
 
   addSection(worksheet, row, 'Perfiles de referencia Self-Hosted');
   row += 1;
@@ -318,11 +353,11 @@ function addSelfHostedCapacitySheet(workbook: ExcelJS.Workbook, _payload: Export
     [32, 10, 12, 12, 12, 50],
   ) + 1;
 
-  addSection(worksheet, row, 'Impacto de capacidad por componente opcional');
+  addSection(worksheet, row, 'Impacto de capacidad por componente');
   row += 1;
   row = addTable(
     worksheet, row,
-    ['Componente', 'Impacto esperado', 'Capacidad referencial adicional', 'Nota'],
+    ['Componente', 'Impacto técnico', 'Capacidad referencial adicional', 'Nota'],
     SELF_HOSTED_CAPACITY_IMPACTS.map((item) => [item.component, item.impact, item.additionalCapacity, item.note]),
     [32, 28, 42, 42],
   ) + 1;
@@ -342,7 +377,7 @@ function addSelfHostedCapacitySheet(workbook: ExcelJS.Workbook, _payload: Export
   row += 1;
   worksheet.mergeCells(row, 1, row + 1, 6);
   const validation = worksheet.getCell(row, 1);
-  validation.value = 'Para ambientes críticos, multinodo o Custom Edition, se debe validar el diseño con IBM preventa antes de presentar sizing final al cliente.';
+  validation.value = 'Para ambientes críticos, multinodo o Custom Edition, se debe validar el diseño con IBM preventa antes de presentar sizing final al cliente. Los valores de capacidad son referenciales y no reemplazan el sizing técnico oficial.';
   validation.alignment = { wrapText: true, vertical: 'top' };
   styleRange(worksheet, row, row + 1, 1, 6);
 

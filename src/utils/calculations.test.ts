@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScenarioInput } from '../types/sizing';
-import { SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES } from '../rules/selfHostedCapacity';
+import { LOGS_CAPACITY_IMPACT, PRODUCTION_BASE_PROFILE, PRODUCTION_LARGE_PROFILE, SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES, SYNTHETIC_CAPACITY_IMPACT } from '../rules/selfHostedCapacity';
 import { buildQuoteLines, buildRecommendations, calculateIngest, calculateInventory, calculateLogs, calculateSynthetic } from './calculations';
 import { createScenarioWorkbook } from './exportExcel';
 import { createScenarioPdfBlob } from './exportPdf';
@@ -29,7 +29,7 @@ const baseScenario = (): ScenarioInput => ({
     fiftyMvsConfirmed: false,
   },
   logs: { retentionDays: 7, tbMonth: 0, growthPercent: 0 },
-  selfHostedSizing: { traceVolume: 0, traceVolumeUnit: 'GB/día', logsTbMonth: 0, retention: 'Por confirmar', highAvailability: 'Por confirmar', environments: 1, growthPercent: 20, notes: '' },
+  selfHostedSizing: { scenario: 'base', cpu: 28, ramGb: 112, storageTb: 3.7, iops: 3000, throughputMibS: 250, traceVolume: 0, traceVolumeUnit: 'GB/día', logsTbMonth: 0, retention: 'Por confirmar', highAvailability: 'Por confirmar', environments: 1, growthPercent: 20, notes: '' },
   synthetic: [
     { id: 'apiSimple', label: 'API Simple', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.025 },
     { id: 'apiScript', label: 'API Script', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.042 },
@@ -502,6 +502,87 @@ describe('Instana sizing calculations', () => {
   });
 });
 
+describe('Self-Hosted scenario presets', () => {
+  it('Production base profile has correct resource values', () => {
+    expect(PRODUCTION_BASE_PROFILE.cpu).toBe(28);
+    expect(PRODUCTION_BASE_PROFILE.ramGb).toBe(112);
+    expect(PRODUCTION_BASE_PROFILE.storageTb).toBe(3.7);
+    expect(PRODUCTION_BASE_PROFILE.iops).toBe(3000);
+    expect(PRODUCTION_BASE_PROFILE.throughputMibS).toBe(250);
+  });
+
+  it('Production large profile has correct resource values', () => {
+    expect(PRODUCTION_LARGE_PROFILE.cpu).toBe(56);
+    expect(PRODUCTION_LARGE_PROFILE.ramGb).toBe(224);
+    expect(PRODUCTION_LARGE_PROFILE.storageTb).toBe(7.4);
+    expect(PRODUCTION_LARGE_PROFILE.iops).toBe(3000);
+    expect(PRODUCTION_LARGE_PROFILE.throughputMibS).toBe(250);
+  });
+
+  it('default scenario is base and traceVolume is 0, not 500', () => {
+    const scenario = baseScenario();
+    expect(scenario.selfHostedSizing.scenario).toBe('base');
+    expect(scenario.selfHostedSizing.traceVolume).toBe(0);
+    expect(scenario.selfHostedSizing.cpu).toBe(PRODUCTION_BASE_PROFILE.cpu);
+    expect(scenario.selfHostedSizing.ramGb).toBe(PRODUCTION_BASE_PROFILE.ramGb);
+  });
+
+  it('Custom scenario allows free-form capacity without preset constraint', () => {
+    const scenario = baseScenario();
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, scenario: 'custom', cpu: 100, ramGb: 512, storageTb: 20, traceVolume: 0 };
+    expect(scenario.selfHostedSizing.cpu).toBe(100);
+    expect(scenario.selfHostedSizing.ramGb).toBe(512);
+    expect(scenario.selfHostedSizing.storageTb).toBe(20);
+    expect(scenario.selfHostedSizing.traceVolume).toBe(0);
+  });
+
+  it('Logs declared adds referential capacity impact', () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, logsTbMonth: 2 };
+    expect(scenario.selfHostedSizing.logsTbMonth > 0).toBe(true);
+    expect(LOGS_CAPACITY_IMPACT.cpuVcpu).toBe(4);
+    expect(LOGS_CAPACITY_IMPACT.ramGb).toBe(12);
+    expect(LOGS_CAPACITY_IMPACT.storageTb).toBe(3.688);
+    const totalCpu = scenario.selfHostedSizing.cpu + LOGS_CAPACITY_IMPACT.cpuVcpu;
+    expect(totalCpu).toBe(32);
+    const totalStorage = parseFloat((scenario.selfHostedSizing.storageTb + LOGS_CAPACITY_IMPACT.storageTb).toFixed(3));
+    expect(totalStorage).toBe(7.388);
+  });
+
+  it('Synthetic declared adds referential capacity impact', () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.synthetic[0] = { ...scenario.synthetic[0], tests: 2, frequencyMinutes: 60, locations: 1 };
+    expect(scenario.synthetic.some((r) => r.tests > 0)).toBe(true);
+    expect(SYNTHETIC_CAPACITY_IMPACT.cpuVcpu).toBe(2);
+    expect(SYNTHETIC_CAPACITY_IMPACT.ramGb).toBe(9);
+    const totalCpu = scenario.selfHostedSizing.cpu + SYNTHETIC_CAPACITY_IMPACT.cpuVcpu;
+    expect(totalCpu).toBe(30);
+    const totalRam = scenario.selfHostedSizing.ramGb + SYNTHETIC_CAPACITY_IMPACT.ramGb;
+    expect(totalRam).toBe(121);
+  });
+
+  it('High availability sets flag but does not auto-compute multinode capacity', () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, highAvailability: 'Sí' };
+    expect(scenario.selfHostedSizing.highAvailability).toBe('Sí');
+    expect(scenario.selfHostedSizing.cpu).toBe(PRODUCTION_BASE_PROFILE.cpu);
+    expect(scenario.selfHostedSizing.ramGb).toBe(PRODUCTION_BASE_PROFILE.ramGb);
+  });
+
+  it('Kubernetes workers declared does not modify capacity values', () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.inventory.standardKubernetesWorkers = 10;
+    const hasKubernetes = scenario.inventory.standardKubernetesWorkers + scenario.inventory.essentialsKubernetesWorkers > 0;
+    expect(hasKubernetes).toBe(true);
+    expect(scenario.selfHostedSizing.cpu).toBe(PRODUCTION_BASE_PROFILE.cpu);
+    expect(scenario.selfHostedSizing.ramGb).toBe(PRODUCTION_BASE_PROFILE.ramGb);
+  });
+});
+
 describe('Self-Hosted capacity reference data', () => {
   it('profile base has correct resource values', () => {
     const base = SELF_HOSTED_PROFILES.find((p) => p.id === 'base');
@@ -583,10 +664,11 @@ describe('Excel export', () => {
     expect(summaryText).not.toContain('D0I5PZX');
   });
 
-  it('Self-Hosted workbook includes Capacidad Self-Hosted sheet; SaaS workbook does not', () => {
+  it('Self-Hosted workbook includes Capacidad Self-Hosted sheet with scenario, capacity and preventa note', () => {
     const shScenario = baseScenario();
     shScenario.general.mode = 'Self-Hosted';
     shScenario.inventory.standardPhysical = 5;
+    shScenario.selfHostedSizing = { ...shScenario.selfHostedSizing, scenario: 'large', cpu: 56, ramGb: 224, storageTb: 7.4, logsTbMonth: 2, highAvailability: 'Sí' };
     const shInventory = calculateInventory(shScenario.inventory);
     const shIngest = calculateIngest(shScenario, shInventory);
     const shLogs = calculateLogs(shScenario);
@@ -595,10 +677,9 @@ describe('Excel export', () => {
     const shWorkbook = createScenarioWorkbook({ scenario: shScenario, inventory: shInventory, ingest: shIngest, logs: shLogs, synthetic: shSynthetic, quoteLines: shQuoteLines, recommendations: [] });
     expect(shWorkbook.getWorksheet('Capacidad Self-Hosted')).toBeDefined();
     const capacityText = worksheetText(shWorkbook, 'Capacidad Self-Hosted');
+    expect(capacityText).toContain('Production large');
     expect(capacityText).toContain('Single-node production base');
     expect(capacityText).toContain('Single-node production large');
-    expect(capacityText).toContain('28');
-    expect(capacityText).toContain('112');
     expect(capacityText).toContain('56');
     expect(capacityText).toContain('224');
     expect(capacityText).toContain('+4 vCPU / +12 GB RAM / +3.688 TB storage');

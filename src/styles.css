@@ -357,6 +357,95 @@ td input { min-width: 90px; }
   font-size: 14px;
 }
 
+.sh-warning-card {
+  background: #fff8e1;
+  border: 1px solid #f1c21b;
+  border-left: 5px solid #e8a000;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.sh-warning-card strong {
+  display: block;
+  color: #4a3300;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.sh-warning-card p {
+  margin: 8px 0 0;
+  color: #4a3300;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.adjusted-badge {
+  display: inline-block;
+  background: #fff8e1;
+  border: 1px solid #f1c21b;
+  color: #6a4a00;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.referential-capacity-block {
+  border: 1px solid #a6c8ff;
+  border-left: 5px solid var(--ibm-blue);
+  border-radius: 8px;
+  background: #edf5ff;
+  padding: 16px;
+}
+
+.referential-capacity-block h3 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  color: var(--ibm-blue-dark);
+}
+
+.capacity-impacts {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #d0e2ff;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.capacity-impact-item {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  padding: 4px 0;
+  color: var(--text);
+  border-bottom: 1px solid #e0e0e040;
+}
+
+.capacity-impact-item:last-child {
+  border-bottom: none;
+}
+
+.capacity-impact-label {
+  font-weight: 700;
+  color: var(--ibm-blue-dark);
+  flex-shrink: 0;
+}
+
+.capacity-total-row {
+  background: white;
+  border: 2px solid var(--ibm-blue);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.warning-note {
+  background: #fff8e1;
+  border-color: #f1c21b;
+  border-left-color: #e8a000;
+}
+
 .capacity-warnings-list {
   margin: 0;
   padding-left: 20px;

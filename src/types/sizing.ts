@@ -63,9 +63,17 @@ export interface LogsInput {
   growthPercent: number;
 }
 
+export type SelfHostedScenario = 'base' | 'large' | 'custom';
+
 export interface SelfHostedSizingInput {
+  scenario: SelfHostedScenario;
+  cpu: number;
+  ramGb: number;
+  storageTb: number;
+  iops: number;
+  throughputMibS: number;
   traceVolume: number;
-  traceVolumeUnit: 'GB/día' | 'GB/mes';
+  traceVolumeUnit: 'GB/día' | 'GB/mes' | 'TB/mes';
   logsTbMonth: number;
   retention: string;
   highAvailability: 'Por confirmar' | 'Sí' | 'No';

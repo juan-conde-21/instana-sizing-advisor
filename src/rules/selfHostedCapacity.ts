@@ -1,27 +1,47 @@
-export const SELF_HOSTED_PROFILES = [
-  {
-    id: 'base',
-    name: 'Single-node production base',
-    type: 'Self-Hosted Standard Edition - Single-node production',
-    cpu: 28,
-    ramGb: 112,
-    storageTb: 3.7,
-    iops: 3000,
-    throughputMibS: 250,
-    note: 'Usar como referencia inicial para ambientes productivos base. No representa sizing final para cargas altas, alto volumen de trazas, Kubernetes intensivo, logging extendido o uso intensivo de features opcionales.',
-  },
-  {
-    id: 'large',
-    name: 'Single-node production large',
-    type: 'Self-Hosted Standard Edition - Single-node production large',
-    cpu: 56,
-    ramGb: 224,
-    storageTb: 7.4,
-    iops: 3000,
-    throughputMibS: 250,
-    note: 'Referencia para escenarios de crecimiento o mayor carga. No representa sizing final para Custom Edition, multinode o ambientes de alta criticidad.',
-  },
-] as const;
+import type { SelfHostedScenario } from '../types/sizing';
+
+export const DEFAULT_SELF_HOSTED_SCENARIO: SelfHostedScenario = 'base';
+
+export const PRODUCTION_BASE_PROFILE = {
+  id: 'base',
+  scenarioKey: 'base' as const,
+  name: 'Single-node production base',
+  label: 'Production base',
+  type: 'Self-Hosted Standard Edition - Single-node production',
+  cpu: 28,
+  ramGb: 112,
+  storageTb: 3.7,
+  iops: 3000,
+  throughputMibS: 250,
+  note: 'Usar como referencia inicial para ambientes productivos base. No representa sizing final para cargas altas, alto volumen de trazas, Kubernetes intensivo, logging extendido o uso intensivo de features opcionales.',
+} as const;
+
+export const PRODUCTION_LARGE_PROFILE = {
+  id: 'large',
+  scenarioKey: 'large' as const,
+  name: 'Single-node production large',
+  label: 'Production large',
+  type: 'Self-Hosted Standard Edition - Single-node production large',
+  cpu: 56,
+  ramGb: 224,
+  storageTb: 7.4,
+  iops: 3000,
+  throughputMibS: 250,
+  note: 'Referencia para escenarios de crecimiento o mayor carga. No representa sizing final para Custom Edition, multinode o ambientes de alta criticidad.',
+} as const;
+
+export const SELF_HOSTED_PROFILES = [PRODUCTION_BASE_PROFILE, PRODUCTION_LARGE_PROFILE] as const;
+
+export const LOGS_CAPACITY_IMPACT = {
+  cpuVcpu: 4,
+  ramGb: 12,
+  storageTb: 3.688,
+} as const;
+
+export const SYNTHETIC_CAPACITY_IMPACT = {
+  cpuVcpu: 2,
+  ramGb: 9,
+} as const;
 
 export const SELF_HOSTED_CAPACITY_IMPACTS = [
   {
@@ -47,6 +67,12 @@ export const SELF_HOSTED_CAPACITY_IMPACTS = [
     impact: 'Mayor volumen de métricas, entidades y cardinalidad',
     additionalCapacity: 'Requiere ajuste según cantidad de worker nodes, pods, contenedores, namespaces y tecnologías monitoreadas.',
     note: 'Un worker node Kubernetes con muchos pods puede generar más carga que una VM tradicional.',
+  },
+  {
+    component: 'Alta disponibilidad',
+    impact: 'Requiere validación de arquitectura multinodo o diseño específico',
+    additionalCapacity: 'Consultar con IBM preventa para diseño de alta disponibilidad.',
+    note: 'No calcular automáticamente. Requiere validación de arquitectura.',
   },
   {
     component: 'EUM / alta trazabilidad',
