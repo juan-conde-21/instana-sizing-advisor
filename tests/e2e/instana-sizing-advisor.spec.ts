@@ -490,6 +490,61 @@ test('botones de exportación se ven completos en móvil', async ({ page }) => {
   await expectNoGlobalHorizontalScroll(page);
 });
 
+test('Self-Hosted muestra plantilla de capacidad con perfiles y tabla de impacto', async ({ page }) => {
+  await page.getByTestId('deployment-mode-self-hosted').click();
+
+  await expect(page.getByTestId('self-hosted-capacity-section')).toBeVisible();
+
+  const profileBase = page.getByTestId('self-hosted-profile-base');
+  await expect(profileBase).toContainText('28 vCPU');
+  await expect(profileBase).toContainText('112 GB RAM');
+  await expect(profileBase).toContainText('3.7 TB');
+
+  const profileLarge = page.getByTestId('self-hosted-profile-large');
+  await expect(profileLarge).toContainText('56 vCPU');
+  await expect(profileLarge).toContainText('224 GB RAM');
+  await expect(profileLarge).toContainText('7.4 TB');
+
+  await expect(page.getByTestId('self-hosted-warnings')).toContainText('Kubernetes');
+  await expect(page.getByTestId('self-hosted-warnings')).toContainText('IBM preventa');
+
+  const impactTable = page.getByTestId('self-hosted-capacity-impact-table');
+  await expect(impactTable).toContainText('Logs / Analyze Logs');
+  await expect(impactTable).toContainText('+4 vCPU');
+  await expect(impactTable).toContainText('+12 GB RAM');
+  await expect(impactTable).toContainText('+3.688 TB');
+  await expect(impactTable).toContainText('Synthetic Monitoring Self-Hosted');
+  await expect(impactTable).toContainText('+2 vCPU');
+  await expect(impactTable).toContainText('+9 GB RAM');
+
+  await expect(quote(page)).not.toContainText('D0N7BZX');
+  await expect(quote(page)).not.toContainText('D0RL4ZX');
+  await expect(quote(page)).not.toContainText('D0I5PZX');
+
+  await expect(page.getByTestId('self-hosted-pop-note')).toHaveCount(0);
+});
+
+test('Self-Hosted muestra nota de PoP cuando hay pruebas Synthetic declaradas previas', async ({ page }) => {
+  await activateSynthetic(page);
+  const synthetic = page.getByTestId('synthetic-table');
+  await synthetic.locator('tbody tr').nth(0).locator('input').nth(0).fill('2');
+
+  await page.getByTestId('deployment-mode-self-hosted').click();
+
+  await expect(page.getByTestId('self-hosted-pop-note')).toBeVisible();
+  await expect(page.getByTestId('self-hosted-pop-note')).toContainText('PoP');
+});
+
+test('SaaS no muestra la sección de capacidad Self-Hosted', async ({ page }) => {
+  await expect(page.getByTestId('self-hosted-capacity-section')).toHaveCount(0);
+
+  await page.getByTestId('deployment-mode-self-hosted').click();
+  await expect(page.getByTestId('self-hosted-capacity-section')).toBeVisible();
+
+  await page.getByTestId('deployment-mode-saas').click();
+  await expect(page.getByTestId('self-hosted-capacity-section')).toHaveCount(0);
+});
+
 test('tablas usan scroll interno sin desbordar la página', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
   await clearState(page);

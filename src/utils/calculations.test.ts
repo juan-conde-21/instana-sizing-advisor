@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScenarioInput } from '../types/sizing';
+import { SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES } from '../rules/selfHostedCapacity';
 import { buildQuoteLines, buildRecommendations, calculateIngest, calculateInventory, calculateLogs, calculateSynthetic } from './calculations';
 import { createScenarioWorkbook } from './exportExcel';
 import { createScenarioPdfBlob } from './exportPdf';
@@ -501,6 +502,34 @@ describe('Instana sizing calculations', () => {
   });
 });
 
+describe('Self-Hosted capacity reference data', () => {
+  it('profile base has correct resource values', () => {
+    const base = SELF_HOSTED_PROFILES.find((p) => p.id === 'base');
+    expect(base?.cpu).toBe(28);
+    expect(base?.ramGb).toBe(112);
+    expect(base?.storageTb).toBe(3.7);
+    expect(base?.iops).toBe(3000);
+  });
+
+  it('profile large has correct resource values', () => {
+    const large = SELF_HOSTED_PROFILES.find((p) => p.id === 'large');
+    expect(large?.cpu).toBe(56);
+    expect(large?.ramGb).toBe(224);
+    expect(large?.storageTb).toBe(7.4);
+    expect(large?.iops).toBe(3000);
+  });
+
+  it('Logs capacity impact has correct additional capacity text', () => {
+    const logs = SELF_HOSTED_CAPACITY_IMPACTS.find((item) => item.component === 'Logs / Analyze Logs');
+    expect(logs?.additionalCapacity).toBe('+4 vCPU / +12 GB RAM / +3.688 TB storage');
+  });
+
+  it('Synthetic capacity impact has correct additional capacity text', () => {
+    const synthetic = SELF_HOSTED_CAPACITY_IMPACTS.find((item) => item.component === 'Synthetic Monitoring Self-Hosted');
+    expect(synthetic?.additionalCapacity).toBe('+2 vCPU / +9 GB RAM / storage base incluido');
+  });
+});
+
 describe('Excel export', () => {
   it('creates workbook with updated sheets and no zero-quantity part numbers', async () => {
     const scenario = baseScenario();
@@ -522,7 +551,10 @@ describe('Excel export', () => {
     expect(summaryText).toContain('D0N7BZX');
     expect(summaryText).not.toContain('D0RL4ZX');
     expect(summaryText).not.toContain('D0I5PZX');
-    expect(workbookText(workbook)).not.toMatch(/\b46\b/);
+    const additionalText = worksheetText(workbook, 'Capacidades adicionales');
+    expect(additionalText).toContain('D0N7BZX');
+    expect(additionalText).not.toContain('D0RL4ZX');
+    expect(additionalText).not.toContain('D0I5PZX');
   });
 
   it('creates Self-Hosted workbook with technical considerations and only Self-Hosted quote lines', async () => {
@@ -549,5 +581,38 @@ describe('Excel export', () => {
     expect(summaryText).not.toContain('D0N7BZX');
     expect(summaryText).not.toContain('D0RL4ZX');
     expect(summaryText).not.toContain('D0I5PZX');
+  });
+
+  it('Self-Hosted workbook includes Capacidad Self-Hosted sheet; SaaS workbook does not', () => {
+    const shScenario = baseScenario();
+    shScenario.general.mode = 'Self-Hosted';
+    shScenario.inventory.standardPhysical = 5;
+    const shInventory = calculateInventory(shScenario.inventory);
+    const shIngest = calculateIngest(shScenario, shInventory);
+    const shLogs = calculateLogs(shScenario);
+    const shSynthetic = calculateSynthetic(shScenario.synthetic, 0, false);
+    const shQuoteLines = buildQuoteLines(shScenario, shInventory, shIngest, shLogs, shSynthetic);
+    const shWorkbook = createScenarioWorkbook({ scenario: shScenario, inventory: shInventory, ingest: shIngest, logs: shLogs, synthetic: shSynthetic, quoteLines: shQuoteLines, recommendations: [] });
+    expect(shWorkbook.getWorksheet('Capacidad Self-Hosted')).toBeDefined();
+    const capacityText = worksheetText(shWorkbook, 'Capacidad Self-Hosted');
+    expect(capacityText).toContain('Single-node production base');
+    expect(capacityText).toContain('Single-node production large');
+    expect(capacityText).toContain('28');
+    expect(capacityText).toContain('112');
+    expect(capacityText).toContain('56');
+    expect(capacityText).toContain('224');
+    expect(capacityText).toContain('+4 vCPU / +12 GB RAM / +3.688 TB storage');
+    expect(capacityText).toContain('+2 vCPU / +9 GB RAM / storage base incluido');
+    expect(capacityText).toContain('IBM preventa');
+
+    const saasScenario = baseScenario();
+    saasScenario.inventory.standardPhysical = 5;
+    const saasInventory = calculateInventory(saasScenario.inventory);
+    const saasIngest = calculateIngest(saasScenario, saasInventory);
+    const saasLogs = calculateLogs(saasScenario);
+    const saasSynthetic = calculateSynthetic(saasScenario.synthetic, 0, false);
+    const saasQuoteLines = buildQuoteLines(saasScenario, saasInventory, saasIngest, saasLogs, saasSynthetic);
+    const saasWorkbook = createScenarioWorkbook({ scenario: saasScenario, inventory: saasInventory, ingest: saasIngest, logs: saasLogs, synthetic: saasSynthetic, quoteLines: saasQuoteLines, recommendations: [] });
+    expect(saasWorkbook.getWorksheet('Capacidad Self-Hosted')).toBeUndefined();
   });
 });

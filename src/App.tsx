@@ -13,6 +13,7 @@ import { MvsDefinition } from './components/MvsDefinition';
 import { QuoteSummary } from './components/QuoteSummary';
 import { ResultOverview } from './components/ResultOverview';
 import { SyntheticCalculator } from './components/SyntheticCalculator';
+import { SelfHostedCapacity } from './components/SelfHostedCapacity';
 import { SelfHostedSizing } from './components/SelfHostedSizing';
 import { ValidationPanel } from './components/ValidationPanel';
 import type { EditionSelection as EditionSelectionType, IngestInput, InventoryInput, ScenarioInput, SyntheticRowInput } from './types/sizing';
@@ -354,6 +355,7 @@ export default function App() {
         </section>
 
         {scenario.general.mode === 'SaaS' ? <AddOnToggles scenario={scenario} ingest={ingest} logs={logs} synthetic={synthetic} onChange={(addOns) => updateScenario({ addOns })} /> : <SelfHostedSizing value={scenario.selfHostedSizing} onChange={(selfHostedSizing) => updateScenario({ selfHostedSizing })} />}
+        {scenario.general.mode === 'Self-Hosted' && <SelfHostedCapacity scenario={scenario} />}
         {scenario.general.mode === 'SaaS' && scenario.addOns.dataIngest && <IngestCalculator scenario={scenario} inventory={inventory} ingest={ingest} onChange={(ingestValue) => updateScenario({ ingest: ingestValue })} />}
         {scenario.general.mode === 'SaaS' && scenario.addOns.logs && <LogsCalculator value={scenario.logs} logs={logs} onChange={(logsValue) => updateScenario({ logs: logsValue })} />}
         {scenario.general.mode === 'SaaS' && scenario.addOns.syntheticManagedPop && <SyntheticCalculator scenario={scenario} result={synthetic} onChange={(syntheticValue) => updateScenario({ synthetic: syntheticValue })} onGrowthChange={(syntheticGrowthPercent) => updateScenario({ syntheticGrowthPercent })} />}

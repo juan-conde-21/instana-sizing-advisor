@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { INSTANA_RULES } from '../rules/instanaRules';
+import { SELF_HOSTED_CAPACITY_IMPACTS, SELF_HOSTED_PROFILES, SELF_HOSTED_SIZING_WARNINGS } from '../rules/selfHostedCapacity';
 import type { IngestResult, InventoryResult, LogsResult, QuoteLine, Recommendation, ScenarioInput, SyntheticResult } from '../types/sizing';
 import { formatNumber } from './calculations';
 import { additionalCapabilities, commercialJustification, CPQ_VALIDATION_NOTE, executiveRecommendation, minimumSummary, safeFileName, selectedEditions, warningMessages } from './reporting';
@@ -293,6 +294,61 @@ function addCatalogSheet(workbook: ExcelJS.Workbook, payload: ExportPayload) {
   worksheet.views = [{ state: 'frozen', ySplit: 4 }];
 }
 
+function addSelfHostedCapacitySheet(workbook: ExcelJS.Workbook, _payload: ExportPayload) {
+  const worksheet = workbook.addWorksheet('Capacidad Self-Hosted');
+  setupPage(worksheet, true);
+  addTitle(worksheet, 'Capacidad Self-Hosted', 'Plantilla referencial de dimensionamiento técnico');
+
+  let row = 4;
+  addSection(worksheet, row, 'Nota de uso');
+  row += 1;
+  worksheet.mergeCells(row, 1, row + 1, 6);
+  const notice = worksheet.getCell(row, 1);
+  notice.value = 'Esta plantilla es referencial. El dimensionamiento final debe validarse de acuerdo con el volumen real de monitoreo, tecnologías observadas, cantidad de contenedores/pods, trazas, logs, retención y patrones de tráfico. Para escenarios multinodo, Custom Edition o ambientes de alta criticidad, consultar con el equipo IBM de preventa.';
+  notice.alignment = { wrapText: true, vertical: 'top' };
+  styleRange(worksheet, row, row + 1, 1, 6);
+  row += 3;
+
+  addSection(worksheet, row, 'Perfiles de referencia Self-Hosted');
+  row += 1;
+  row = addTable(
+    worksheet, row,
+    ['Perfil', 'vCPU', 'GB RAM', 'TB Storage', 'IOPS mín', 'Nota'],
+    SELF_HOSTED_PROFILES.map((p) => [p.name, p.cpu, p.ramGb, p.storageTb, p.iops, p.note]),
+    [32, 10, 12, 12, 12, 50],
+  ) + 1;
+
+  addSection(worksheet, row, 'Impacto de capacidad por componente opcional');
+  row += 1;
+  row = addTable(
+    worksheet, row,
+    ['Componente', 'Impacto esperado', 'Capacidad referencial adicional', 'Nota'],
+    SELF_HOSTED_CAPACITY_IMPACTS.map((item) => [item.component, item.impact, item.additionalCapacity, item.note]),
+    [32, 28, 42, 42],
+  ) + 1;
+
+  addSection(worksheet, row, 'Advertencias de dimensionamiento');
+  row += 1;
+  SELF_HOSTED_SIZING_WARNINGS.forEach((warning, index) => {
+    worksheet.mergeCells(row + index, 1, row + index, 6);
+    const cell = worksheet.getCell(row + index, 1);
+    cell.value = `• ${warning}`;
+    cell.alignment = { wrapText: true, vertical: 'top' };
+  });
+  styleRange(worksheet, row, row + SELF_HOSTED_SIZING_WARNINGS.length - 1, 1, 6);
+  row += SELF_HOSTED_SIZING_WARNINGS.length + 1;
+
+  addSection(worksheet, row, 'Validación con IBM preventa');
+  row += 1;
+  worksheet.mergeCells(row, 1, row + 1, 6);
+  const validation = worksheet.getCell(row, 1);
+  validation.value = 'Para ambientes críticos, multinodo o Custom Edition, se debe validar el diseño con IBM preventa antes de presentar sizing final al cliente.';
+  validation.alignment = { wrapText: true, vertical: 'top' };
+  styleRange(worksheet, row, row + 1, 1, 6);
+
+  worksheet.views = [{ state: 'frozen', ySplit: 3 }];
+}
+
 export function createScenarioWorkbook(payload: ExportPayload) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Instana Sizing Advisor';
@@ -301,6 +357,7 @@ export function createScenarioWorkbook(payload: ExportPayload) {
   addDetailSheet(workbook, payload);
   addAdditionalSheet(workbook, payload);
   addCatalogSheet(workbook, payload);
+  if (payload.scenario.general.mode === 'Self-Hosted') addSelfHostedCapacitySheet(workbook, payload);
   workbook.worksheets.forEach((sheet) => {
     sheet.eachRow((row) => row.eachCell((cell) => {
       if (typeof cell.value === 'number') cell.numFmt = Number.isInteger(cell.value) ? '#,##0' : '#,##0.0';
