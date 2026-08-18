@@ -312,7 +312,7 @@ export default function App() {
           <div>
             <p className="eyebrow">IBM Instana Observability</p>
             <h1>IBM Instana Observability - Calculadora comercial de licenciamiento</h1>
-            <p>Estima las licencias y componentes necesarios para monitorear aplicaciones e infraestructura con IBM Instana en modalidad SaaS o Self-Hosted.</p>
+            <p>Aplicación para orientar el sizing referencial de IBM Instana Observability distribuido, facilitando el cálculo de MVS, consumo de ingesta, logs, Synthetic RU y componentes aplicables según la modalidad SaaS o Self-Hosted.</p>
           </div>
         </div>
       </header>

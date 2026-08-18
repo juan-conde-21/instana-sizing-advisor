@@ -103,7 +103,7 @@ export function SyntheticCalculator({ scenario, result, onChange, onGrowthChange
         <div><span>RU licenciadas</span><strong>{formatNumber(result.licensedRu)} RU</strong></div>
         <div><span>RU disponibles luego del redondeo</span><strong>{formatNumber(result.availableRu, 1)} RU</strong></div>
       </div>
-      {result.minimumApplied && <p className="note">El cálculo está por debajo del mínimo. Se consideran {INSTANA_RULES.synthetic.minimumUnits} unidades, equivalentes a {formatNumber(INSTANA_RULES.synthetic.minimumUnits * INSTANA_RULES.synthetic.unitRu)} RU/mes. El remanente queda disponible para crecimiento o nuevas pruebas.</p>}
+      {result.minimumApplied && <p className="note">El cálculo está por debajo del mínimo. Se consideran {INSTANA_RULES.synthetic.minimumUnits} unidades, equivalentes a {formatNumber(INSTANA_RULES.synthetic.minimumUnits * INSTANA_RULES.synthetic.unitRu)} RU/mes. Las RU disponibles quedan para crecimiento o nuevas pruebas.</p>}
       <p className="note">Ejemplo: 1 API Simple cada 60 minutos desde 1 ubicación ejecuta 720 veces al mes. Con una tasa de 0.025 RU por ejecución, calcula 18 RU mensuales. Al aplicar el mínimo configurado, se cotizan {INSTANA_RULES.synthetic.minimumUnits} unidades si Managed PoP está incluido.</p>
     </section>
   );

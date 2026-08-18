@@ -592,6 +592,28 @@ td input { min-width: 90px; }
   border-radius: 6px;
 }
 
+.included-panel {
+  background: #defbe6;
+  border: 1px solid #a7f0ba;
+  border-left: 4px solid #42be65;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.included-panel strong {
+  display: block;
+  color: #0e6027;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.included-panel p {
+  margin: 0;
+  color: #044317;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .inventory-fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

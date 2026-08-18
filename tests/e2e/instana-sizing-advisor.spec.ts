@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
 
 test('carga inicial con recorrido comercial vertical y sin sidebar sticky', async ({ page }) => {
   await expect(page.locator('h1')).toHaveText('IBM Instana Observability - Calculadora comercial de licenciamiento');
-  await expect(page.locator('body')).toContainText('Estima las licencias y componentes necesarios para monitorear aplicaciones e infraestructura con IBM Instana en modalidad SaaS o Self-Hosted.');
+  await expect(page.locator('body')).toContainText('Aplicación para orientar el sizing referencial de IBM Instana Observability distribuido, facilitando el cálculo de MVS, consumo de ingesta, logs, Synthetic RU y componentes aplicables según la modalidad SaaS o Self-Hosted.');
   await expect(page.getByRole('heading', { name: 'Comienza con un ejemplo' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Datos generales del escenario' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Selecciona la modalidad' })).toBeVisible();
