@@ -1,5 +1,5 @@
-import { PRODUCTION_BASE_PROFILE, PRODUCTION_LARGE_PROFILE } from '../rules/selfHostedCapacity';
-import type { SelfHostedSizingInput } from '../types/sizing';
+import { CUSTOM_PROFILE_DEFAULTS, PRODUCTION_BASE_PROFILE, PRODUCTION_LARGE_PROFILE } from '../rules/selfHostedCapacity';
+import type { SelfHostedSizingInput, WorkloadType } from '../types/sizing';
 
 interface Props {
   value: SelfHostedSizingInput;
@@ -12,19 +12,68 @@ function isAdjustedFromPreset(field: 'cpu' | 'ramGb' | 'storageTb' | 'iops' | 't
   return value[field] !== preset[field];
 }
 
+function showsKubernetesWarning(workloadType: WorkloadType): boolean {
+  return workloadType === 'Kubernetes moderado' || workloadType === 'Kubernetes intensivo' || workloadType === 'Mixto';
+}
+
 export function SelfHostedSizing({ value, onChange }: Props) {
   const setNumber = (field: keyof SelfHostedSizingInput, rawValue: string) =>
     onChange({ ...value, [field]: Math.max(0, Number(rawValue) || 0) });
 
   const handleScenarioChange = (newScenario: SelfHostedSizingInput['scenario']) => {
     if (newScenario === 'base') {
-      onChange({ ...value, scenario: 'base', cpu: PRODUCTION_BASE_PROFILE.cpu, ramGb: PRODUCTION_BASE_PROFILE.ramGb, storageTb: PRODUCTION_BASE_PROFILE.storageTb, iops: PRODUCTION_BASE_PROFILE.iops, throughputMibS: PRODUCTION_BASE_PROFILE.throughputMibS });
+      onChange({
+        ...value,
+        scenario: 'base',
+        cpu: PRODUCTION_BASE_PROFILE.cpu,
+        ramGb: PRODUCTION_BASE_PROFILE.ramGb,
+        storageTb: PRODUCTION_BASE_PROFILE.storageTb,
+        iops: PRODUCTION_BASE_PROFILE.iops,
+        throughputMibS: PRODUCTION_BASE_PROFILE.throughputMibS,
+        referenceHosts: PRODUCTION_BASE_PROFILE.referenceHosts,
+        workloadType: PRODUCTION_BASE_PROFILE.referenceWorkloadType,
+        traceVolume: PRODUCTION_BASE_PROFILE.referenceTracesVolume,
+        traceVolumeUnit: PRODUCTION_BASE_PROFILE.referenceTracesUnit,
+        logsTbMonth: PRODUCTION_BASE_PROFILE.referenceLogsTbMonthly,
+        retention: `${PRODUCTION_BASE_PROFILE.referenceRetentionDays} días`,
+        environments: PRODUCTION_BASE_PROFILE.referenceEnvironments,
+        growthPercent: PRODUCTION_BASE_PROFILE.referenceGrowthPercent,
+      });
     } else if (newScenario === 'large') {
-      onChange({ ...value, scenario: 'large', cpu: PRODUCTION_LARGE_PROFILE.cpu, ramGb: PRODUCTION_LARGE_PROFILE.ramGb, storageTb: PRODUCTION_LARGE_PROFILE.storageTb, iops: PRODUCTION_LARGE_PROFILE.iops, throughputMibS: PRODUCTION_LARGE_PROFILE.throughputMibS });
+      onChange({
+        ...value,
+        scenario: 'large',
+        cpu: PRODUCTION_LARGE_PROFILE.cpu,
+        ramGb: PRODUCTION_LARGE_PROFILE.ramGb,
+        storageTb: PRODUCTION_LARGE_PROFILE.storageTb,
+        iops: PRODUCTION_LARGE_PROFILE.iops,
+        throughputMibS: PRODUCTION_LARGE_PROFILE.throughputMibS,
+        referenceHosts: PRODUCTION_LARGE_PROFILE.referenceHosts,
+        workloadType: PRODUCTION_LARGE_PROFILE.referenceWorkloadType,
+        traceVolume: PRODUCTION_LARGE_PROFILE.referenceTracesVolume,
+        traceVolumeUnit: PRODUCTION_LARGE_PROFILE.referenceTracesUnit,
+        logsTbMonth: PRODUCTION_LARGE_PROFILE.referenceLogsTbMonthly,
+        retention: `${PRODUCTION_LARGE_PROFILE.referenceRetentionDays} días`,
+        environments: PRODUCTION_LARGE_PROFILE.referenceEnvironments,
+        growthPercent: PRODUCTION_LARGE_PROFILE.referenceGrowthPercent,
+      });
     } else {
-      onChange({ ...value, scenario: 'custom' });
+      onChange({
+        ...value,
+        scenario: 'custom',
+        referenceHosts: CUSTOM_PROFILE_DEFAULTS.referenceHosts,
+        workloadType: CUSTOM_PROFILE_DEFAULTS.referenceWorkloadType,
+        traceVolume: CUSTOM_PROFILE_DEFAULTS.referenceTracesVolume,
+        traceVolumeUnit: CUSTOM_PROFILE_DEFAULTS.referenceTracesUnit,
+        logsTbMonth: CUSTOM_PROFILE_DEFAULTS.referenceLogsTbMonthly,
+        environments: CUSTOM_PROFILE_DEFAULTS.referenceEnvironments,
+        growthPercent: CUSTOM_PROFILE_DEFAULTS.referenceGrowthPercent,
+      });
     }
   };
+
+  const k8sWarning = showsKubernetesWarning(value.workloadType);
+  const k8sIntensive = value.workloadType === 'Kubernetes intensivo';
 
   return (
     <section className="section-card" id="self-hosted-sizing" data-testid="self-hosted-sizing-section">
@@ -98,9 +147,29 @@ export function SelfHostedSizing({ value, onChange }: Props) {
 
       <h3 className="section-subheading">Volúmenes referenciales de ingesta</h3>
       <div className="notice compact-notice section-gap">
-        Los volúmenes de trazas y logs son datos referenciales para orientar el sizing. Deben ajustarse con información real del cliente: inventario a monitorear, TPS, spans por transacción, volumen de logs, retención, Kubernetes, pods, tecnologías observadas y crecimiento esperado.
+        Los siguientes valores son referenciales y editables. Sirven para orientar la conversación de sizing Self-Hosted y deben ajustarse con información real del cliente: inventario a monitorear, tipo de carga, TPS, spans por transacción, volumen de logs, retención, Kubernetes, pods, tecnologías observadas y crecimiento esperado.
       </div>
       <div className="form-grid section-gap">
+        <label>
+          <span className="label-with-help">
+            Hosts referenciales a monitorear
+          </span>
+          <input data-testid="self-hosted-reference-hosts-input" type="number" min={0} step={1} value={value.referenceHosts} onChange={(event) => setNumber('referenceHosts', event.target.value)} />
+          <span className="field-note">No representa un límite garantizado. La capacidad real depende del tipo de tecnología, carga de trazas, uso de Kubernetes, cantidad de pods/contenedores, logs, EUM, Synthetic y retención.</span>
+        </label>
+        <label>
+          Tipo de carga predominante
+          <select
+            data-testid="self-hosted-workload-type-select"
+            value={value.workloadType}
+            onChange={(event) => onChange({ ...value, workloadType: event.target.value as WorkloadType })}
+          >
+            <option>VMs/servidores tradicionales</option>
+            <option>Kubernetes moderado</option>
+            <option>Kubernetes intensivo</option>
+            <option>Mixto</option>
+          </select>
+        </label>
         <label>
           Volumen referencial de trazas
           <input data-testid="self-hosted-trace-volume-input" type="number" min={0} value={value.traceVolume} onChange={(event) => setNumber('traceVolume', event.target.value)} />
@@ -149,6 +218,15 @@ export function SelfHostedSizing({ value, onChange }: Props) {
           <textarea rows={3} value={value.notes} onChange={(event) => onChange({ ...value, notes: event.target.value })} placeholder="Supuestos, arquitectura, retención, alta disponibilidad o restricciones técnicas" />
         </label>
       </div>
+
+      {k8sWarning && (
+        <div
+          className={`notice compact-notice section-gap${k8sIntensive ? ' warning-note' : ''}`}
+          data-testid="self-hosted-k8s-workload-warning"
+        >
+          Kubernetes puede generar mayor carga que VMs tradicionales por la cantidad de pods, contenedores, namespaces, métricas y entidades dinámicas. Validar el sizing con IBM preventa si existe alta cardinalidad o crecimiento sostenido.
+        </div>
+      )}
 
       <div className="definition-grid section-gap">
         <article>

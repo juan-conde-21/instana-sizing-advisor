@@ -29,7 +29,7 @@ const baseScenario = (): ScenarioInput => ({
     fiftyMvsConfirmed: false,
   },
   logs: { retentionDays: 7, tbMonth: 0, growthPercent: 0 },
-  selfHostedSizing: { scenario: 'base', cpu: 28, ramGb: 112, storageTb: 3.7, iops: 3000, throughputMibS: 250, traceVolume: 0, traceVolumeUnit: 'GB/día', logsTbMonth: 0, retention: 'Por confirmar', highAvailability: 'Por confirmar', environments: 1, growthPercent: 20, notes: '' },
+  selfHostedSizing: { scenario: 'base', cpu: 28, ramGb: 112, storageTb: 3.7, iops: 3000, throughputMibS: 250, referenceHosts: 0, workloadType: 'VMs/servidores tradicionales', traceVolume: 0, traceVolumeUnit: 'GB/día', logsTbMonth: 0, retention: 'Por confirmar', highAvailability: 'Por confirmar', environments: 1, growthPercent: 20, notes: '' },
   synthetic: [
     { id: 'apiSimple', label: 'API Simple', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.025 },
     { id: 'apiScript', label: 'API Script', tests: 0, frequencyMinutes: 5, locations: 1, ruPerExecution: 0.042 },

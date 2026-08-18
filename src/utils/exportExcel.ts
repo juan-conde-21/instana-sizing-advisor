@@ -299,11 +299,13 @@ function selfHostedCapacityRows(payload: ExportPayload): RowValues[] {
   const logsApplied = sh.logsTbMonth > 0;
   const syntheticApplied = payload.synthetic.rows.some((r) => r.tests > 0) || payload.scenario.synthetic.some((r) => r.tests > 0);
   const scenarioLabel = sh.scenario === 'base' ? 'Production base' : sh.scenario === 'large' ? 'Production large' : 'Custom';
-  const addCpu = (logsApplied ? SELF_HOSTED_CAPACITY_IMPACTS[0] ? 4 : 0 : 0) + (syntheticApplied ? 2 : 0);
+  const addCpu = (logsApplied ? 4 : 0) + (syntheticApplied ? 2 : 0);
   const addRamGb = (logsApplied ? 12 : 0) + (syntheticApplied ? 9 : 0);
   const addStorageTb = logsApplied ? 3.688 : 0;
   const rows: RowValues[] = [
     ['Escenario seleccionado', scenarioLabel],
+    ['Hosts referenciales a monitorear', sh.referenceHosts || null],
+    ['Tipo de carga predominante', sh.workloadType],
     ['CPU base (vCPU)', sh.cpu],
     ['Memoria base (GB RAM)', sh.ramGb],
     ['Storage base (TB)', sh.storageTb],
@@ -326,6 +328,7 @@ function selfHostedCapacityRows(payload: ExportPayload): RowValues[] {
   }
   if (sh.highAvailability === 'Sí') rows.push(['Advertencia HA', 'Alta disponibilidad requiere validación de arquitectura multinodo o diseño específico con IBM preventa.']);
   if (sh.notes) rows.push(['Observaciones técnicas', sh.notes]);
+  rows.push(['Nota de validación', 'Los hosts, trazas y logs declarados orientan el análisis. El sizing final debe validarse con IBM preventa considerando inventario real, tecnologías monitoreadas y carga observada.']);
   return rows;
 }
 

@@ -64,6 +64,7 @@ export interface LogsInput {
 }
 
 export type SelfHostedScenario = 'base' | 'large' | 'custom';
+export type WorkloadType = 'VMs/servidores tradicionales' | 'Kubernetes moderado' | 'Kubernetes intensivo' | 'Mixto';
 
 export interface SelfHostedSizingInput {
   scenario: SelfHostedScenario;
@@ -72,6 +73,8 @@ export interface SelfHostedSizingInput {
   storageTb: number;
   iops: number;
   throughputMibS: number;
+  referenceHosts: number;
+  workloadType: WorkloadType;
   traceVolume: number;
   traceVolumeUnit: 'GB/día' | 'GB/mes' | 'TB/mes';
   logsTbMonth: number;

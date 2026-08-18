@@ -13,7 +13,15 @@ export const PRODUCTION_BASE_PROFILE = {
   storageTb: 3.7,
   iops: 3000,
   throughputMibS: 250,
-  note: 'Usar como referencia inicial para ambientes productivos base. No representa sizing final para cargas altas, alto volumen de trazas, Kubernetes intensivo, logging extendido o uso intensivo de features opcionales.',
+  referenceHosts: 100,
+  referenceWorkloadType: 'VMs/servidores tradicionales' as const,
+  referenceTracesVolume: 50,
+  referenceTracesUnit: 'GB/día' as const,
+  referenceLogsTbMonthly: 1,
+  referenceRetentionDays: 30,
+  referenceEnvironments: 1,
+  referenceGrowthPercent: 20,
+  note: 'Referencia inicial para ambientes productivos base o cargas controladas. Requiere validación si existen muchos pods, alta trazabilidad, logs intensivos o múltiples ambientes.',
 } as const;
 
 export const PRODUCTION_LARGE_PROFILE = {
@@ -27,7 +35,25 @@ export const PRODUCTION_LARGE_PROFILE = {
   storageTb: 7.4,
   iops: 3000,
   throughputMibS: 250,
-  note: 'Referencia para escenarios de crecimiento o mayor carga. No representa sizing final para Custom Edition, multinode o ambientes de alta criticidad.',
+  referenceHosts: 250,
+  referenceWorkloadType: 'Mixto' as const,
+  referenceTracesVolume: 150,
+  referenceTracesUnit: 'GB/día' as const,
+  referenceLogsTbMonthly: 3,
+  referenceRetentionDays: 30,
+  referenceEnvironments: 2,
+  referenceGrowthPercent: 20,
+  note: 'Referencia para mayor volumen, crecimiento o escenarios mixtos. No reemplaza un sizing final para alta disponibilidad, multinodo o Custom Edition.',
+} as const;
+
+export const CUSTOM_PROFILE_DEFAULTS = {
+  referenceHosts: 0,
+  referenceWorkloadType: 'Mixto' as const,
+  referenceTracesVolume: 0,
+  referenceTracesUnit: 'GB/día' as const,
+  referenceLogsTbMonthly: 0,
+  referenceEnvironments: 1,
+  referenceGrowthPercent: 20,
 } as const;
 
 export const SELF_HOSTED_PROFILES = [PRODUCTION_BASE_PROFILE, PRODUCTION_LARGE_PROFILE] as const;

@@ -44,6 +44,14 @@ export function SelfHostedCapacity({ scenario }: Props) {
             <strong>{scenarioLabel(selfHostedSizing.scenario)}</strong>
           </div>
           <div>
+            <span>Hosts referenciales</span>
+            <strong>{selfHostedSizing.referenceHosts > 0 ? `${selfHostedSizing.referenceHosts} hosts` : 'No declarado'}</strong>
+          </div>
+          <div>
+            <span>Tipo de carga</span>
+            <strong>{selfHostedSizing.workloadType}</strong>
+          </div>
+          <div>
             <span>CPU base</span>
             <strong>{selfHostedSizing.cpu} vCPU</strong>
           </div>
@@ -54,6 +62,36 @@ export function SelfHostedCapacity({ scenario }: Props) {
           <div>
             <span>Storage base</span>
             <strong>{selfHostedSizing.storageTb} TB</strong>
+          </div>
+          <div>
+            <span>IOPS mínimo</span>
+            <strong>{selfHostedSizing.iops.toLocaleString('es-ES')}</strong>
+          </div>
+          <div>
+            <span>Throughput mínimo</span>
+            <strong>{selfHostedSizing.throughputMibS} MiB/s</strong>
+          </div>
+          {selfHostedSizing.traceVolume > 0 && (
+            <div>
+              <span>Trazas referenciales</span>
+              <strong>{selfHostedSizing.traceVolume} {selfHostedSizing.traceVolumeUnit}</strong>
+            </div>
+          )}
+          {selfHostedSizing.logsTbMonth > 0 && (
+            <div>
+              <span>Logs referenciales</span>
+              <strong>{selfHostedSizing.logsTbMonth} TB/mes</strong>
+            </div>
+          )}
+          {selfHostedSizing.retention !== 'Por confirmar' && (
+            <div>
+              <span>Retención</span>
+              <strong>{selfHostedSizing.retention}</strong>
+            </div>
+          )}
+          <div>
+            <span>Crecimiento esperado</span>
+            <strong>{selfHostedSizing.growthPercent}%</strong>
           </div>
         </div>
 
@@ -103,7 +141,7 @@ export function SelfHostedCapacity({ scenario }: Props) {
           </div>
         )}
 
-        <p className="note section-gap">Valores referenciales. El sizing final debe validarse con IBM preventa, considerando el inventario real, volumen de trazas, logs, retención y arquitectura.</p>
+        <p className="note section-gap">Los hosts, trazas y logs declarados orientan el análisis, pero el sizing final debe validarse con IBM preventa considerando inventario real, tecnologías monitoreadas y carga observada.</p>
       </div>
 
       <div className="notice warning-note compact-notice section-gap" data-testid="self-hosted-capacity-warning">
@@ -161,18 +199,18 @@ export function SelfHostedCapacity({ scenario }: Props) {
       <h3 className="section-subheading">Single-node vs escenarios avanzados</h3>
       <div className="comparison-grid section-gap">
         <article>
-          <h4>Single-node production base</h4>
-          <p>Referencia inicial para ambientes productivos base.</p>
-          <p>Requiere validar límites de carga y crecimiento.</p>
+          <h4>Production base</h4>
+          <p>Referencia inicial para ambientes productivos base o cargas controladas.</p>
+          <p>Requiere validación si existen muchos pods, alta trazabilidad, logs intensivos o múltiples ambientes.</p>
         </article>
         <article>
           <h4>Production large</h4>
-          <p>Referencia para mayor carga o crecimiento sostenido.</p>
-          <p>No reemplaza sizing final.</p>
+          <p>Referencia para mayor volumen, crecimiento o escenarios mixtos.</p>
+          <p>No reemplaza un sizing final para alta disponibilidad, multinodo o Custom Edition.</p>
         </article>
         <article>
-          <h4>Multinode / Custom Edition</h4>
-          <p>Para alta disponibilidad, mayor criticidad, crecimiento sostenido o arquitectura específica.</p>
+          <h4>Custom</h4>
+          <p>Usar cuando el cliente ya dispone de supuestos propios o requiere un dimensionamiento específico.</p>
           <p><strong>Acción:</strong> Consultar con IBM preventa para validación de arquitectura y sizing.</p>
         </article>
       </div>
