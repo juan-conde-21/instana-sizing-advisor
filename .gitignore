@@ -45,24 +45,4 @@ Thumbs.db
 *.crt
 
 # Internal working notes (not for public repo)
-TRASPASO_CLAUDE.md
-*CLAUDE*
-*Claude*
-*claude*
-*CODEX*
-*Codex*
-*codex*
-*CHATGPT*
-*ChatGPT*
-*chatgpt*
-*OPENAI*
-*OpenAI*
-*openai*
-*prompt*
-*Prompt*
-*traspaso*
-*Traspaso*
-prompts/
-handoff/
 internal/
-.claude/
