@@ -254,7 +254,13 @@ export default function App() {
     setScenario((current) => {
       const merged = { ...current, ...next };
       if (merged.general.mode === 'Self-Hosted') {
-        return { ...merged, addOns: { dataIngest: false, logs: false, syntheticManagedPop: false }, ingest: { ...merged.ingest, serverlessOnly: false, useFiftyMvsScenario: false, fiftyMvsConfirmed: false } };
+        const switchingToSelfHosted = current.general.mode !== 'Self-Hosted';
+        return {
+          ...merged,
+          selfHostedSizing: switchingToSelfHosted ? { ...defaultScenario.selfHostedSizing } : merged.selfHostedSizing,
+          addOns: { dataIngest: false, logs: false, syntheticManagedPop: false },
+          ingest: { ...merged.ingest, serverlessOnly: false, useFiftyMvsScenario: false, fiftyMvsConfirmed: false },
+        };
       }
       return merged;
     });

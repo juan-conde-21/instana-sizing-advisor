@@ -331,8 +331,8 @@ test('Self-Hosted muestra sizing técnico sin afirmar cálculo de infraestructur
   await expect(page.getByTestId('addon-logs-toggle')).toHaveCount(0);
   await expect(page.getByTestId('addon-synthetic-toggle')).toHaveCount(0);
   await expect(page.getByTestId('self-hosted-sizing-section')).toContainText('Configuración Self-Hosted');
-  await expect(page.getByTestId('self-hosted-sizing-section')).toContainText('Esta calculadora estima las licencias MVS');
-  await expect(page.getByTestId('self-hosted-sizing-section')).toContainText('debe validarse con la herramienta o guía técnica de sizing de Instana');
+  await expect(page.getByTestId('self-hosted-sizing-section')).toContainText('Advertencia de sizing Self-Hosted');
+  await expect(page.getByTestId('self-hosted-sizing-section')).toContainText('no reemplaza un sizing técnico final');
   await expect(page.getByTestId('self-hosted-sizing-section')).not.toContainText('CPU calculada');
   await expect(page.getByTestId('self-hosted-sizing-section')).not.toContainText('memoria calculada');
 });
@@ -500,22 +500,32 @@ test('Self-Hosted muestra selector de escenario y Production base por defecto', 
   await expect(page.getByTestId('self-hosted-cpu-input')).toHaveValue('28');
   await expect(page.getByTestId('self-hosted-ram-input')).toHaveValue('112');
   await expect(page.getByTestId('self-hosted-storage-input')).toHaveValue('3.7');
-  await expect(page.getByTestId('self-hosted-trace-volume-input')).toHaveValue('0');
+  await expect(page.getByTestId('self-hosted-reference-hosts-input')).toHaveValue('100');
+  await expect(page.getByTestId('self-hosted-trace-volume-input')).toHaveValue('50');
   await expect(page.getByTestId('self-hosted-sizing-warning')).toBeVisible();
   await expect(page.getByTestId('self-hosted-sizing-warning')).toContainText('Advertencia de sizing Self-Hosted');
 });
 
-test('Self-Hosted Production large carga valores de capacidad grande', async ({ page }) => {
+test('Self-Hosted no carga Production large al seleccionar modalidad por primera vez', async ({ page }) => {
+  await page.getByTestId('deployment-mode-self-hosted').click();
+  await expect(page.getByTestId('self-hosted-scenario-select')).toHaveValue('base');
+  await expect(page.getByTestId('self-hosted-cpu-input')).not.toHaveValue('56');
+  await expect(page.getByTestId('self-hosted-ram-input')).not.toHaveValue('224');
+  await expect(page.getByTestId('self-hosted-reference-hosts-input')).not.toHaveValue('250');
+});
+
+test('Self-Hosted Production large carga valores de capacidad grande solo al seleccionarse explícitamente', async ({ page }) => {
   await page.getByTestId('deployment-mode-self-hosted').click();
   await page.getByTestId('self-hosted-scenario-select').selectOption('large');
 
   await expect(page.getByTestId('self-hosted-cpu-input')).toHaveValue('56');
   await expect(page.getByTestId('self-hosted-ram-input')).toHaveValue('224');
   await expect(page.getByTestId('self-hosted-storage-input')).toHaveValue('7.4');
-  await expect(page.getByTestId('self-hosted-trace-volume-input')).toHaveValue('0');
+  await expect(page.getByTestId('self-hosted-reference-hosts-input')).toHaveValue('250');
+  await expect(page.getByTestId('self-hosted-trace-volume-input')).toHaveValue('150');
 });
 
-test('Self-Hosted Custom permite edición libre y trazas no inicia en 500', async ({ page }) => {
+test('Self-Hosted Custom permite edición libre y limpia valores referenciales', async ({ page }) => {
   await page.getByTestId('deployment-mode-self-hosted').click();
   await page.getByTestId('self-hosted-scenario-select').selectOption('custom');
 
@@ -524,6 +534,8 @@ test('Self-Hosted Custom permite edición libre y trazas no inicia en 500', asyn
   await expect(page.getByTestId('self-hosted-ram-input')).toBeEnabled();
   await expect(page.getByTestId('self-hosted-storage-input')).toBeEnabled();
   await expect(page.getByTestId('self-hosted-trace-volume-input')).not.toHaveValue('500');
+  await expect(page.getByTestId('self-hosted-trace-volume-input')).toHaveValue('0');
+  await expect(page.getByTestId('self-hosted-reference-hosts-input')).toHaveValue('0');
 
   await fillNumber(page, 'self-hosted-cpu-input', '100');
   await expect(page.getByTestId('self-hosted-cpu-input')).toHaveValue('100');
@@ -561,6 +573,26 @@ test('Self-Hosted Excel descarga archivo con hoja Capacidad Self-Hosted', async 
   });
   expect(Buffer.concat(chunks).byteLength).toBeGreaterThan(0);
   expect(excel.suggestedFilename()).toMatch(/\.xlsx$/);
+});
+
+test('Self-Hosted PDF descarga archivo válido y no vacío', async ({ page }) => {
+  await page.getByTestId('deployment-mode-self-hosted').click();
+  await fillNumber(page, 'standard-physical-input', '5');
+
+  const pdfPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Descargar reporte PDF' }).click();
+  const pdf = await pdfPromise;
+  const stream = await pdf.createReadStream();
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    stream!.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    stream!.on('end', resolve);
+    stream!.on('error', reject);
+  });
+  const content = Buffer.concat(chunks);
+  expect(content.byteLength).toBeGreaterThan(1000);
+  expect(pdf.suggestedFilename()).toMatch(/\.pdf$/);
+  expect(content.toString('ascii', 0, 5)).toBe('%PDF-');
 });
 
 test('Self-Hosted muestra plantilla de capacidad con perfiles y tabla de impacto', async ({ page }) => {

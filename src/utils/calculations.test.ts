@@ -511,12 +511,39 @@ describe('Self-Hosted scenario presets', () => {
     expect(PRODUCTION_BASE_PROFILE.throughputMibS).toBe(250);
   });
 
+  it('Production base profile has correct reference intake values', () => {
+    expect(PRODUCTION_BASE_PROFILE.referenceHosts).toBe(100);
+    expect(PRODUCTION_BASE_PROFILE.referenceTracesVolume).toBe(50);
+    expect(PRODUCTION_BASE_PROFILE.referenceTracesUnit).toBe('GB/día');
+    expect(PRODUCTION_BASE_PROFILE.referenceLogsTbMonthly).toBe(1);
+    expect(PRODUCTION_BASE_PROFILE.referenceRetentionDays).toBe(30);
+    expect(PRODUCTION_BASE_PROFILE.referenceEnvironments).toBe(1);
+    expect(PRODUCTION_BASE_PROFILE.referenceGrowthPercent).toBe(20);
+  });
+
   it('Production large profile has correct resource values', () => {
     expect(PRODUCTION_LARGE_PROFILE.cpu).toBe(56);
     expect(PRODUCTION_LARGE_PROFILE.ramGb).toBe(224);
     expect(PRODUCTION_LARGE_PROFILE.storageTb).toBe(7.4);
     expect(PRODUCTION_LARGE_PROFILE.iops).toBe(3000);
     expect(PRODUCTION_LARGE_PROFILE.throughputMibS).toBe(250);
+  });
+
+  it('Production large profile has correct reference intake values', () => {
+    expect(PRODUCTION_LARGE_PROFILE.referenceHosts).toBe(250);
+    expect(PRODUCTION_LARGE_PROFILE.referenceTracesVolume).toBe(150);
+    expect(PRODUCTION_LARGE_PROFILE.referenceTracesUnit).toBe('GB/día');
+    expect(PRODUCTION_LARGE_PROFILE.referenceLogsTbMonthly).toBe(3);
+    expect(PRODUCTION_LARGE_PROFILE.referenceRetentionDays).toBe(30);
+    expect(PRODUCTION_LARGE_PROFILE.referenceEnvironments).toBe(2);
+    expect(PRODUCTION_LARGE_PROFILE.referenceGrowthPercent).toBe(20);
+  });
+
+  it('Production large is not the default scenario', () => {
+    const scenario = baseScenario();
+    expect(scenario.selfHostedSizing.scenario).not.toBe('large');
+    expect(scenario.selfHostedSizing.cpu).not.toBe(PRODUCTION_LARGE_PROFILE.cpu);
+    expect(scenario.selfHostedSizing.ramGb).not.toBe(PRODUCTION_LARGE_PROFILE.ramGb);
   });
 
   it('default scenario is base and traceVolume is 0, not 500', () => {
@@ -581,6 +608,42 @@ describe('Self-Hosted scenario presets', () => {
     expect(scenario.selfHostedSizing.cpu).toBe(PRODUCTION_BASE_PROFILE.cpu);
     expect(scenario.selfHostedSizing.ramGb).toBe(PRODUCTION_BASE_PROFILE.ramGb);
   });
+
+  it('Production large scenario loads only when explicitly selected', () => {
+    const scenario = baseScenario();
+    expect(scenario.selfHostedSizing.scenario).toBe('base');
+    const largeSizing = {
+      ...scenario.selfHostedSizing,
+      scenario: 'large' as const,
+      cpu: PRODUCTION_LARGE_PROFILE.cpu,
+      ramGb: PRODUCTION_LARGE_PROFILE.ramGb,
+      storageTb: PRODUCTION_LARGE_PROFILE.storageTb,
+      referenceHosts: PRODUCTION_LARGE_PROFILE.referenceHosts,
+      traceVolume: PRODUCTION_LARGE_PROFILE.referenceTracesVolume,
+      logsTbMonth: PRODUCTION_LARGE_PROFILE.referenceLogsTbMonthly,
+    };
+    expect(largeSizing.scenario).toBe('large');
+    expect(largeSizing.cpu).toBe(56);
+    expect(largeSizing.ramGb).toBe(224);
+    expect(largeSizing.referenceHosts).toBe(250);
+    expect(largeSizing.traceVolume).toBe(150);
+    expect(largeSizing.logsTbMonth).toBe(3);
+  });
+
+  it('Custom scenario clears reference intake values', () => {
+    const scenario = baseScenario();
+    const customSizing = {
+      ...scenario.selfHostedSizing,
+      scenario: 'custom' as const,
+      referenceHosts: 0,
+      traceVolume: 0,
+      logsTbMonth: 0,
+    };
+    expect(customSizing.scenario).toBe('custom');
+    expect(customSizing.referenceHosts).toBe(0);
+    expect(customSizing.traceVolume).toBe(0);
+    expect(customSizing.logsTbMonth).toBe(0);
+  });
 });
 
 describe('Self-Hosted capacity reference data', () => {
@@ -608,6 +671,64 @@ describe('Self-Hosted capacity reference data', () => {
   it('Synthetic capacity impact has correct additional capacity text', () => {
     const synthetic = SELF_HOSTED_CAPACITY_IMPACTS.find((item) => item.component === 'Synthetic Monitoring Self-Hosted');
     expect(synthetic?.additionalCapacity).toBe('+2 vCPU / +9 GB RAM / storage base incluido');
+  });
+});
+
+describe('PDF Self-Hosted capacity section', () => {
+  it('PDF Self-Hosted includes capacity section title and scenario', async () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.inventory.standardPhysical = 5;
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, scenario: 'base', cpu: 28, ramGb: 112, storageTb: 3.7, referenceHosts: 100, traceVolume: 50, logsTbMonth: 1 };
+    const inventory = calculateInventory(scenario.inventory);
+    const ingest = calculateIngest(scenario, inventory);
+    const logs = calculateLogs(scenario);
+    const synthetic = calculateSynthetic(scenario.synthetic, 0, false);
+    const quoteLines = buildQuoteLines(scenario, inventory, ingest, logs, synthetic);
+    const recommendations = buildRecommendations(scenario, inventory, ingest, logs, synthetic);
+    const pdf = createScenarioPdfBlob({ scenario, inventory, ingest, logs, synthetic, quoteLines, recommendations });
+    const pdfText = new TextDecoder().decode(await pdf.arrayBuffer());
+    expect(pdfText).toContain(hexForWinAnsi('Capacidad Self-Hosted referencial'));
+    expect(pdfText).toContain(hexForWinAnsi('Production base'));
+    expect(pdfText).toContain(hexForWinAnsi('IBM preventa'));
+  });
+
+  it('PDF Self-Hosted includes CPU, memoria and storage values', async () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.inventory.standardPhysical = 5;
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, scenario: 'base', cpu: 28, ramGb: 112, storageTb: 3.7 };
+    const inventory = calculateInventory(scenario.inventory);
+    const payload = { scenario, inventory, ingest: calculateIngest(scenario, inventory), logs: calculateLogs(scenario), synthetic: calculateSynthetic(scenario.synthetic, 0, false), quoteLines: [], recommendations: [] };
+    const pdfText = new TextDecoder().decode(await createScenarioPdfBlob(payload).arrayBuffer());
+    expect(pdfText).toContain(hexForWinAnsi('28'));
+    expect(pdfText).toContain(hexForWinAnsi('112'));
+    expect(pdfText).toContain(hexForWinAnsi('3.7'));
+    expect(pdfText).toContain(hexForWinAnsi('vCPU'));
+    expect(pdfText).toContain(hexForWinAnsi('GB RAM'));
+  });
+
+  it('PDF Self-Hosted includes reference hosts and traces', async () => {
+    const scenario = baseScenario();
+    scenario.general.mode = 'Self-Hosted';
+    scenario.inventory.standardPhysical = 5;
+    scenario.selfHostedSizing = { ...scenario.selfHostedSizing, referenceHosts: 100, traceVolume: 50, logsTbMonth: 1 };
+    const inventory = calculateInventory(scenario.inventory);
+    const payload = { scenario, inventory, ingest: calculateIngest(scenario, inventory), logs: calculateLogs(scenario), synthetic: calculateSynthetic(scenario.synthetic, 0, false), quoteLines: [], recommendations: [] };
+    const pdfText = new TextDecoder().decode(await createScenarioPdfBlob(payload).arrayBuffer());
+    expect(pdfText).toContain(hexForWinAnsi('Hosts referenciales a monitorear'));
+    expect(pdfText).toContain(hexForWinAnsi('Volumen referencial de trazas'));
+    expect(pdfText).toContain(hexForWinAnsi('Advertencia de sizing'));
+  });
+
+  it('PDF SaaS does not include Self-Hosted capacity section', async () => {
+    const scenario = baseScenario();
+    scenario.inventory.standardPhysical = 10;
+    const inventory = calculateInventory(scenario.inventory);
+    const payload = { scenario, inventory, ingest: calculateIngest(scenario, inventory), logs: calculateLogs(scenario), synthetic: calculateSynthetic(scenario.synthetic, 0, false), quoteLines: buildQuoteLines(scenario, inventory, calculateIngest(scenario, inventory), calculateLogs(scenario), calculateSynthetic(scenario.synthetic, 0, false)), recommendations: [] };
+    const pdfText = new TextDecoder().decode(await createScenarioPdfBlob(payload).arrayBuffer());
+    expect(pdfText).not.toContain(hexForWinAnsi('Capacidad Self-Hosted referencial'));
+    expect(pdfText).not.toContain(hexForWinAnsi('Production base'));
   });
 });
 

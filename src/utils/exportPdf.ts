@@ -2,6 +2,7 @@ import type { ExportPayload } from './exportExcel';
 import { commercialJustification, CPQ_VALIDATION_NOTE, executiveRecommendation, minimumSummary, safeFileName, selectedEditions, warningMessages } from './reporting';
 import { formatNumber } from './calculations';
 import { INSTANA_RULES } from '../rules/instanaRules';
+import { LOGS_CAPACITY_IMPACT, SYNTHETIC_CAPACITY_IMPACT } from '../rules/selfHostedCapacity';
 
 const pageWidth = 595;
 const pageHeight = 842;
@@ -262,15 +263,87 @@ function buildPages(payload: ExportPayload) {
   }
 
   if (scenario.general.mode === 'Self-Hosted') {
-    pdf.section('Self-Hosted');
-    pdf.text('Esta calculadora estima las licencias MVS. El dimensionamiento definitivo de CPU, memoria, nodos y almacenamiento debe validarse con la herramienta o guía técnica de sizing de Instana.', 10, false);
-    pdf.table(['Dato técnico', 'Valor', 'Unidad'], [
-      ['Volumen de trazas', formatNumber(scenario.selfHostedSizing.traceVolume), scenario.selfHostedSizing.traceVolumeUnit],
-      ['Volumen de logs', formatNumber(scenario.selfHostedSizing.logsTbMonth, 1), 'TB mensual'],
-      ['Retención', scenario.selfHostedSizing.retention, ''],
-      ['Alta disponibilidad', scenario.selfHostedSizing.highAvailability, ''],
-      ['Cantidad de ambientes', scenario.selfHostedSizing.environments, ''],
+    const sh = scenario.selfHostedSizing;
+    const scenarioLabel = sh.scenario === 'base' ? 'Production base' : sh.scenario === 'large' ? 'Production large' : 'Custom';
+    const logsApplied = sh.logsTbMonth > 0;
+    const syntheticApplied = synthetic.rows.some((r) => r.tests > 0) || scenario.synthetic.some((r) => r.tests > 0);
+    const k8sIntensive = sh.workloadType === 'Kubernetes intensivo';
+    const addCpu = (logsApplied ? LOGS_CAPACITY_IMPACT.cpuVcpu : 0) + (syntheticApplied ? SYNTHETIC_CAPACITY_IMPACT.cpuVcpu : 0);
+    const addRamGb = (logsApplied ? LOGS_CAPACITY_IMPACT.ramGb : 0) + (syntheticApplied ? SYNTHETIC_CAPACITY_IMPACT.ramGb : 0);
+    const addStorageTb = logsApplied ? LOGS_CAPACITY_IMPACT.storageTb : 0;
+    const totalCpu = sh.cpu + addCpu;
+    const totalRam = sh.ramGb + addRamGb;
+    const totalStorage = parseFloat((sh.storageTb + addStorageTb).toFixed(3));
+
+    pdf.addPage();
+    pdf.header('Capacidad Self-Hosted referencial', 'Dimensionamiento orientativo. Requiere validacion con IBM preventa.');
+
+    pdf.section('A. Escenario seleccionado');
+    pdf.table(['Concepto', 'Valor', ''], [
+      ['Escenario', scenarioLabel, ''],
+      ['Alta disponibilidad', sh.highAvailability, ''],
+      ['Cantidad de ambientes', sh.environments, ''],
+    ], [230, 200, 81]);
+
+    pdf.section('B. Capacidad del backend Instana');
+    pdf.table(['Recurso', 'Valor base', 'Unidad'], [
+      ['CPU referencial', sh.cpu, 'vCPU'],
+      ['Memoria referencial', sh.ramGb, 'GB RAM'],
+      ['Storage referencial', sh.storageTb, 'TB'],
+      ['IOPS minimo', sh.iops, ''],
+      ['Throughput minimo', sh.throughputMibS, 'MiB/s'],
     ], [230, 120, 161]);
+
+    pdf.section('C. Volumenes referenciales de ingesta');
+    pdf.table(['Concepto', 'Valor', 'Unidad'], [
+      ['Hosts referenciales a monitorear', sh.referenceHosts > 0 ? sh.referenceHosts : 'No declarado', ''],
+      ['Tipo de carga predominante', sh.workloadType, ''],
+      ['Volumen referencial de trazas', formatNumber(sh.traceVolume), sh.traceVolumeUnit],
+      ['Volumen de logs', formatNumber(sh.logsTbMonth, 1), 'TB mensual'],
+      ['Retencion', sh.retention, ''],
+      ['Crecimiento esperado', formatNumber(sh.growthPercent), '%'],
+    ], [230, 200, 81]);
+
+    pdf.section('D. Capacidad referencial a validar');
+    const capacityRows: PdfRow[] = [
+      ['CPU base', sh.cpu, 'vCPU'],
+      ['Memoria base', sh.ramGb, 'GB RAM'],
+      ['Storage base', sh.storageTb, 'TB'],
+    ];
+    if (addCpu > 0) capacityRows.push(['Incremento CPU tecnico', `+${addCpu}`, 'vCPU']);
+    if (addRamGb > 0) capacityRows.push(['Incremento memoria tecnica', `+${addRamGb}`, 'GB RAM']);
+    if (addStorageTb > 0) capacityRows.push([`Incremento storage tecnico`, `+${addStorageTb.toFixed(3)}`, 'TB']);
+    capacityRows.push(['Total referencial CPU', totalCpu, 'vCPU']);
+    capacityRows.push(['Total referencial memoria', totalRam, 'GB RAM']);
+    capacityRows.push(['Total referencial storage', totalStorage, 'TB']);
+    pdf.table(['Concepto', 'Valor', 'Unidad'], capacityRows, [230, 120, 161]);
+
+    const technicalImpacts: PdfRow[] = [];
+    if (logsApplied) technicalImpacts.push(['Logs / Analyze Logs', '+4 vCPU, +12 GB RAM, +3.688 TB storage']);
+    if (syntheticApplied) technicalImpacts.push(['Synthetic privado', '+2 vCPU, +9 GB RAM']);
+    if (ingest.projectedServerlessOtelGb > 0) technicalImpacts.push(['Serverless / OpenTelemetry', 'Requiere estimacion por TPS, spans, peso promedio y retencion']);
+    if (k8sIntensive) technicalImpacts.push(['Kubernetes intensivo', 'Advertencia: pods, contenedores, namespaces y cardinalidad generan carga adicional']);
+    if (sh.highAvailability === 'Sí') technicalImpacts.push(['Alta disponibilidad', 'Requiere validacion de arquitectura multinodo o diseno especifico con IBM preventa']);
+    if (technicalImpacts.length > 0) {
+      pdf.section('E. Impactos tecnicos aplicados');
+      pdf.table(['Componente', 'Impacto'], technicalImpacts, [200, 311]);
+    }
+
+    pdf.card(
+      'F. Advertencia de sizing',
+      'La capacidad mostrada es referencial y no reemplaza un sizing tecnico final. Para confirmar CPU, memoria, storage, IOPS, throughput y arquitectura, se requiere conocer el inventario a monitorear, volumen de trazas, volumen de logs, retencion, cantidad de servicios, tecnologias, uso de Kubernetes, numero de pods/contenedores, EUM, Synthetic y crecimiento esperado.',
+      [1, 0.973, 0.851]
+    );
+    pdf.card(
+      'Kubernetes y entornos mixtos',
+      'Kubernetes puede generar una carga mayor que VMs tradicionales debido a la cantidad de pods, contenedores, namespaces, metricas y entidades dinamicas. Para ambientes multinodo, alta disponibilidad, Custom Edition o cargas criticas, validar con IBM preventa.',
+      cyanSoft
+    );
+    pdf.card(
+      'G. Escenarios avanzados',
+      'Para escenarios multinodo, Custom Edition, alta disponibilidad o cargas criticas, el sizing debe validarse con IBM preventa.',
+      cyanSoft
+    );
   }
 
   pdf.section('Supuestos y validaciones');
